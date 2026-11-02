@@ -8,3 +8,4 @@ import { DatabaseService } from './database.service';
   exports: [PrismaService, DatabaseService],
 })
 export class CommonModule {}
+

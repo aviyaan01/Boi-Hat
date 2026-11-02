@@ -37,3 +37,4 @@ test.describe('Boi-Hat Marketplace End-to-End Suite', () => {
     await expect(page.locator('text=বিক্রয় মূল্য')).toBeVisible();
   });
 });
+

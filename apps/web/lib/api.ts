@@ -38,3 +38,4 @@ export async function fetchApi<T = any>(
     };
   }
 }
+

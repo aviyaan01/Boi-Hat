@@ -59,3 +59,4 @@ describe('Order Processing & Buyer Protection Logic', () => {
     expect(Math.round(hoursDifference)).toBe(48);
   });
 });
+

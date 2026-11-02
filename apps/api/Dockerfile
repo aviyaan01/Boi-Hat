@@ -27,3 +27,4 @@ COPY --from=builder /app/apps/api ./apps/api
 EXPOSE 4000
 
 CMD ["sh", "-c", "cd apps/api && npx prisma db push --skip-generate && npm run prisma:seed && npm run start:prod"]
+

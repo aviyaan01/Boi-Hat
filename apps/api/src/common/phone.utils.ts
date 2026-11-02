@@ -32,3 +32,4 @@ export function isValidBdPhone(phone: string): boolean {
   const regex = /^\+8801[3-9]\d{8}$/;
   return regex.test(normalized);
 }
+

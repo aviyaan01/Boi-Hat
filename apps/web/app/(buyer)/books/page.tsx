@@ -21,12 +21,17 @@ import {
   Sparkles,
   HelpCircle,
   RotateCcw,
+  Bookmark,
+  BookmarkCheck,
 } from 'lucide-react';
+import { useAuth } from '../../../lib/auth';
 
 function SearchAndBrowseContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { locale, t, formatPrice } = useI18n();
+  const { user, openAuthModal } = useAuth();
+  const [saveSearchSuccess, setSaveSearchSuccess] = useState(false);
 
   // Query states
   const q = searchParams.get('q') || '';
@@ -100,6 +105,33 @@ function SearchAndBrowseContent() {
 
   const clearAllFilters = () => {
     router.push('/books');
+  };
+
+  const handleSaveSearch = async () => {
+    if (!user) {
+      openAuthModal();
+      return;
+    }
+
+    const currentQuery = {
+      q,
+      category_slug: categorySlug,
+      condition,
+      language,
+      min_price: minPrice,
+      max_price: maxPrice,
+      is_rare: isRare,
+    };
+
+    const res = await fetchApi('/saved-searches', {
+      method: 'POST',
+      body: JSON.stringify({ query_json: currentQuery, notify_enabled: true }),
+    });
+
+    if (res.success) {
+      setSaveSearchSuccess(true);
+      setTimeout(() => setSaveSearchSuccess(false), 2500);
+    }
   };
 
   const removeSingleFilter = (key: string) => {
@@ -393,9 +425,31 @@ function SearchAndBrowseContent() {
                   </button>
                 </span>
               )}
+              {/* Save Search Button (Section 9.2: User-controlled alternative to implicit recommendations) */}
+              <button
+                onClick={handleSaveSearch}
+                className={`text-xs px-3 py-1 rounded-full font-bold transition flex items-center gap-1.5 ml-auto ${
+                  saveSearchSuccess
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-emerald-100 hover:bg-emerald-200 text-emerald-900'
+                }`}
+              >
+                {saveSearchSuccess ? (
+                  <>
+                    <BookmarkCheck className="w-3.5 h-3.5" />
+                    <span>সেভ হয়েছে!</span>
+                  </>
+                ) : (
+                  <>
+                    <Bookmark className="w-3.5 h-3.5" />
+                    <span>অনুসন্ধান সেভ করুন</span>
+                  </>
+                )}
+              </button>
+
               <button
                 onClick={clearAllFilters}
-                className="text-xs text-red-600 hover:underline font-semibold ml-auto"
+                className="text-xs text-red-600 hover:underline font-semibold ml-2"
               >
                 সব মুছুন
               </button>
@@ -509,3 +563,4 @@ export default function SearchAndBrowsePage() {
     </Suspense>
   );
 }
+

@@ -23,16 +23,18 @@ export default function HomePage() {
   const { locale, t } = useI18n();
   const [categories, setCategories] = useState<CategoryNode[]>([]);
   const [featuredBooks, setFeaturedBooks] = useState<BookDetail[]>([]);
+  const [personalizedBooks, setPersonalizedBooks] = useState<BookDetail[]>([]);
   const [recentBooks, setRecentBooks] = useState<BookDetail[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadData() {
       try {
-        const [catRes, featRes, recRes] = await Promise.all([
+        const [catRes, featRes, recRes, persRes] = await Promise.all([
           fetchApi<CategoryNode[]>('/categories/tree'),
           fetchApi<BookDetail[]>('/books?limit=4&sort=popular'),
           fetchApi<BookDetail[]>('/books?limit=8&sort=newest'),
+          fetchApi<BookDetail[]>('/books/personalized/feed?limit=8'),
         ]);
 
         if (catRes.success && catRes.data) {
@@ -43,6 +45,9 @@ export default function HomePage() {
         }
         if (recRes.success && recRes.data) {
           setRecentBooks(recRes.data);
+        }
+        if (persRes.success && persRes.data) {
+          setPersonalizedBooks(persRes.data);
         }
       } catch (e) {
         console.error(e);
@@ -187,6 +192,32 @@ export default function HomePage() {
         </section>
       )}
 
+      {/* Personalized Feed Section (Section 9.2: Stage 1 Rule-Based Scoring) */}
+      {personalizedBooks.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-emerald-600" />
+              <h2 className="text-xl sm:text-2xl font-black text-gray-900">
+                আপনার জন্য বিশেষ সুপারিশ (Recommended for You)
+              </h2>
+            </div>
+            <Link
+              href="/books"
+              className="text-xs sm:text-sm font-semibold text-emerald-600 hover:text-emerald-700 flex items-center gap-1"
+            >
+              {t('home.view_all')} <ChevronRight className="w-4 h-4" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+            {personalizedBooks.map((book) => (
+              <BookCard key={book.id} book={book} />
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Recent Listings Section */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between mb-6">
@@ -248,3 +279,4 @@ export default function HomePage() {
     </div>
   );
 }
+

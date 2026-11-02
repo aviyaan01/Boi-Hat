@@ -81,3 +81,4 @@ export class CreateBookDto {
   @ArrayMinSize(3, { message: 'A minimum of 3 book photos (front cover, back cover, spine/pages) is strictly required.' })
   images: string[];
 }
+

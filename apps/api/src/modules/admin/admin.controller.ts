@@ -47,3 +47,4 @@ export class AdminController {
     return this.db.getAdminMetrics();
   }
 }
+

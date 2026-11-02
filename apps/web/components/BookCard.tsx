@@ -1,17 +1,22 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { BookDetail, BookCondition } from '@boi-hat/shared-types';
 import { useI18n } from '../lib/i18n';
-import { MapPin, Sparkles, Award } from 'lucide-react';
+import { useAuth } from '../lib/auth';
+import { fetchApi } from '../lib/api';
+import { MapPin, Sparkles, Award, Heart } from 'lucide-react';
 
 interface BookCardProps {
   book: BookDetail;
+  initialWishlisted?: boolean;
 }
 
-export default function BookCard({ book }: BookCardProps) {
+export default function BookCard({ book, initialWishlisted = false }: BookCardProps) {
   const { locale, formatPrice, t } = useI18n();
+  const { user, openAuthModal } = useAuth();
+  const [isWishlisted, setIsWishlisted] = useState(initialWishlisted);
 
   const title = locale === 'bn' ? book.title_bn : book.title_en || book.title_bn;
   const authorName =
@@ -33,6 +38,25 @@ export default function BookCard({ book }: BookCardProps) {
 
   const conditionLabel = t(`condition.${book.condition}`);
 
+  const handleToggleWishlist = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!user) {
+      openAuthModal();
+      return;
+    }
+
+    const nextState = !isWishlisted;
+    setIsWishlisted(nextState);
+
+    if (nextState) {
+      await fetchApi(`/wishlist/${book.id}`, { method: 'POST' });
+    } else {
+      await fetchApi(`/wishlist/${book.id}`, { method: 'DELETE' });
+    }
+  };
+
   return (
     <Link
       href={`/books/${book.id}`}
@@ -46,11 +70,24 @@ export default function BookCard({ book }: BookCardProps) {
         </div>
       )}
       {book.is_rare && (
-        <div className="absolute top-3 right-3 z-10 bg-indigo-900/90 backdrop-blur-sm text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-md flex items-center gap-1 border border-amber-400/40">
+        <div className="absolute top-3 left-3 z-10 bg-indigo-900/90 backdrop-blur-sm text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-md flex items-center gap-1 border border-amber-400/40">
           <Award className="w-3 h-3 text-amber-400" />
           <span>দুর্লভ</span>
         </div>
       )}
+
+      {/* Wishlist Heart Toggle (Phase 2) */}
+      <button
+        onClick={handleToggleWishlist}
+        className="absolute top-3 right-3 z-20 w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm shadow-md flex items-center justify-center text-gray-400 hover:text-red-500 hover:scale-110 transition active:scale-95"
+        title={isWishlisted ? 'উইশলিস্ট থেকে মুছুন' : 'উইশলিস্টে যুক্ত করুন'}
+      >
+        <Heart
+          className={`w-4 h-4 transition ${
+            isWishlisted ? 'fill-red-500 text-red-500' : 'text-gray-500'
+          }`}
+        />
+      </button>
 
       {/* Image Thumbnail */}
       <div className="relative aspect-[3/4] w-full bg-gray-100 overflow-hidden flex items-center justify-center">
@@ -105,3 +142,4 @@ export default function BookCard({ book }: BookCardProps) {
     </Link>
   );
 }
+

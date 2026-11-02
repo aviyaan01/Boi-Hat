@@ -859,6 +859,270 @@ export class DatabaseService implements OnModuleInit {
     };
   }
 
+  // --- Wishlist, Preferences & Saved Searches (Phase 2) ---
+  private wishlists: any[] = [];
+  private savedSearches: any[] = [];
+  private notifications: any[] = [];
+
+  async getWishlist(userId: string) {
+    const bookIds = this.wishlists.filter((w) => w.user_id === userId).map((w) => w.book_id);
+    const matchedBooks = this.books.filter((b) => bookIds.includes(b.id) && b.status === BookStatus.ACTIVE);
+    return matchedBooks.map((b) => this.hydrateBook(b));
+  }
+
+  async isBookWishlisted(userId: string, bookId: string): Promise<boolean> {
+    return this.wishlists.some((w) => w.user_id === userId && w.book_id === bookId);
+  }
+
+  async addToWishlist(userId: string, bookId: string) {
+    if (!this.wishlists.some((w) => w.user_id === userId && w.book_id === bookId)) {
+      this.wishlists.push({
+        id: `wish-${uuidv4()}`,
+        user_id: userId,
+        book_id: bookId,
+        created_at: new Date().toISOString(),
+      });
+      // Log behavior event (weight +5 per Section 9.2)
+      await this.logBehaviorEvent(userId, 'wishlist', bookId, { action: 'add_to_wishlist' });
+    }
+    return { success: true };
+  }
+
+  async removeFromWishlist(userId: string, bookId: string) {
+    this.wishlists = this.wishlists.filter((w) => !(w.user_id === userId && w.book_id === bookId));
+    return { success: true };
+  }
+
+  async getSavedSearches(userId: string) {
+    return this.savedSearches.filter((s) => s.user_id === userId);
+  }
+
+  async saveSearch(userId: string, query_json: any, notify_enabled: boolean = true) {
+    const saved = {
+      id: `saved-search-${uuidv4()}`,
+      user_id: userId,
+      query_json,
+      notify_enabled,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    this.savedSearches.unshift(saved);
+    return saved;
+  }
+
+  async deleteSavedSearch(userId: string, id: string) {
+    this.savedSearches = this.savedSearches.filter((s) => !(s.id === id && s.user_id === userId));
+    return { success: true };
+  }
+
+  // User Preferences & Onboarding (Section 9.1)
+  async saveOnboardingPreferences(
+    userId: string,
+    data: {
+      category_ids: string[];
+      author_ids?: string[];
+      languages?: string[];
+    },
+  ) {
+    // Remove old onboarding preferences for user
+    this.userPreferences = this.userPreferences.filter((p) => p.user_id !== userId);
+    const initialWeight = 5.0; // Section 9.1: 5.0 for explicit onboarding pick
+
+    for (const catId of data.category_ids) {
+      this.userPreferences.push({
+        id: `pref-${uuidv4()}`,
+        user_id: userId,
+        type: 'category',
+        ref_id: catId,
+        weight: initialWeight,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+    }
+
+    if (data.author_ids) {
+      for (const authId of data.author_ids) {
+        this.userPreferences.push({
+          id: `pref-${uuidv4()}`,
+          user_id: userId,
+          type: 'author',
+          ref_id: authId,
+          weight: initialWeight,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+      }
+    }
+
+    if (data.languages) {
+      for (const lang of data.languages) {
+        this.userPreferences.push({
+          id: `pref-${uuidv4()}`,
+          user_id: userId,
+          type: 'language',
+          ref_id: lang,
+          weight: initialWeight,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+      }
+    }
+
+    return { success: true, count: this.userPreferences.filter((p) => p.user_id === userId).length };
+  }
+
+  async getUserPreferences(userId: string) {
+    return this.userPreferences.filter((p) => p.user_id === userId);
+  }
+
+  // Behavior Event Logging (Section 9.2 Stage 2)
+  async logBehaviorEvent(userId: string, actionType: string, bookId?: string, metadata: any = {}) {
+    const event = {
+      id: `event-${uuidv4()}`,
+      user_id: userId,
+      book_id: bookId || null,
+      action_type: actionType,
+      metadata,
+      created_at: new Date().toISOString(),
+    };
+    this.userBehaviorEvents.push(event);
+
+    const weights: Record<string, number> = {
+      purchase: 10,
+      wishlist: 5,
+      message: 4,
+      search: 3,
+      view: 2,
+    };
+
+    const addedWeight = weights[actionType] || 1;
+
+    if (bookId) {
+      const book = this.books.find((b) => b.id === bookId);
+      if (book) {
+        if (book.author_id) {
+          const authPref = this.userPreferences.find((p) => p.user_id === userId && p.type === 'author' && p.ref_id === book.author_id);
+          if (authPref) authPref.weight += addedWeight;
+          else {
+            this.userPreferences.push({
+              id: `pref-${uuidv4()}`,
+              user_id: userId,
+              type: 'author',
+              ref_id: book.author_id,
+              weight: addedWeight,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            });
+          }
+        }
+
+        const catLinks = this.bookCategories.filter((bc) => bc.book_id === bookId);
+        for (const cl of catLinks) {
+          const catPref = this.userPreferences.find((p) => p.user_id === userId && p.type === 'category' && p.ref_id === cl.category_id);
+          if (catPref) catPref.weight += addedWeight;
+          else {
+            this.userPreferences.push({
+              id: `pref-${uuidv4()}`,
+              user_id: userId,
+              type: 'category',
+              ref_id: cl.category_id,
+              weight: addedWeight,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            });
+          }
+        }
+      }
+    }
+
+    return event;
+  }
+
+  // Personalized Recommendation Feed (Section 9.2 Stage 1: Rule-Based Scoring)
+  // score = (category_match * 3) + (author_match * 4) + recency_score + popularity_score
+  async getPersonalizedFeed(userId?: string, limit: number = 8) {
+    const activeBooks = this.books.filter((b) => b.status === BookStatus.ACTIVE);
+
+    if (!userId) {
+      const trending = [...activeBooks].sort((a, b) => b.view_count - a.view_count).slice(0, limit);
+      return trending.map((b) => this.hydrateBook(b));
+    }
+
+    const userPrefs = this.userPreferences.filter((p) => p.user_id === userId);
+    if (userPrefs.length === 0) {
+      const trending = [...activeBooks].sort((a, b) => b.view_count - a.view_count).slice(0, limit);
+      return trending.map((b) => this.hydrateBook(b));
+    }
+
+    const prefCategoryMap = new Map<string, number>();
+    const prefAuthorMap = new Map<string, number>();
+
+    for (const p of userPrefs) {
+      if (p.type === 'category') prefCategoryMap.set(p.ref_id, p.weight);
+      if (p.type === 'author') prefAuthorMap.set(p.ref_id, p.weight);
+    }
+
+    const scored = activeBooks.map((b) => {
+      let authorScore = 0;
+      if (b.author_id && prefAuthorMap.has(b.author_id)) {
+        authorScore = (prefAuthorMap.get(b.author_id) || 1) * 4;
+      }
+
+      let categoryScore = 0;
+      const bCatIds = this.bookCategories.filter((bc) => bc.book_id === b.id).map((bc) => bc.category_id);
+      for (const catId of bCatIds) {
+        if (prefCategoryMap.has(catId)) {
+          categoryScore += (prefCategoryMap.get(catId) || 1) * 3;
+        }
+      }
+
+      const popularityScore = Math.min(10, (b.view_count || 0) / 10);
+      const ageHours = (Date.now() - new Date(b.created_at).getTime()) / (1000 * 3600);
+      const recencyScore = Math.max(0, 10 - ageHours / 24);
+
+      const totalScore = categoryScore + authorScore + recencyScore + popularityScore;
+
+      return {
+        book: b,
+        score: totalScore,
+      };
+    });
+
+    scored.sort((a, b) => b.score - a.score);
+    return scored.slice(0, limit).map((s) => this.hydrateBook(s.book));
+  }
+
+  // Notifications (Section 9.2 Stage 3 & Section 7)
+  async getNotifications(userId: string) {
+    return this.notifications.filter((n) => n.user_id === userId);
+  }
+
+  async markNotificationRead(id: string, userId: string) {
+    const notif = this.notifications.find((n) => n.id === id && n.user_id === userId);
+    if (notif) notif.is_read = true;
+    return notif;
+  }
+
+  async markAllNotificationsRead(userId: string) {
+    this.notifications.filter((n) => n.user_id === userId).forEach((n) => (n.is_read = true));
+    return { success: true };
+  }
+
+  async createNotification(userId: string, title: string, body: string, type: string = 'new_book_match', dataJson?: any) {
+    const notif = {
+      id: `notif-${uuidv4()}`,
+      user_id: userId,
+      type,
+      title,
+      body,
+      data_json: dataJson || null,
+      is_read: false,
+      created_at: new Date().toISOString(),
+    };
+    this.notifications.unshift(notif);
+    return notif;
+  }
+
   // --- Admin Moderation & Metrics ---
   async getPendingBooks() {
     return this.books
@@ -888,3 +1152,4 @@ export class DatabaseService implements OnModuleInit {
     return this.reports;
   }
 }
+

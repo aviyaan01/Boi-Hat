@@ -127,3 +127,4 @@ export const SHOPS_SEED = [
     logo_url: 'https://images.unsplash.com/photo-1507842229458-77292215c2cf?w=120&q=80',
   },
 ];
+

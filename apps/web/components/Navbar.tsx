@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../lib/auth';
@@ -18,8 +18,13 @@ import {
   LogOut,
   Menu,
   X,
+  Heart,
+  Bell,
+  Sparkles,
 } from 'lucide-react';
 import AuthModal from './AuthModal';
+import OnboardingModal from './OnboardingModal';
+import { fetchApi } from '../lib/api';
 
 export default function Navbar() {
   const router = useRouter();
@@ -29,6 +34,22 @@ export default function Navbar() {
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
+
+  useEffect(() => {
+    async function loadNotifications() {
+      if (!user) return;
+      const res = await fetchApi<any[]>('/notifications');
+      if (res.success && res.data) {
+        setNotifications(res.data);
+      }
+    }
+    loadNotifications();
+  }, [user]);
+
+  const unreadNotifCount = notifications.filter((n) => !n.is_read).length;
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,6 +120,55 @@ export default function Navbar() {
                 <span>{locale === 'bn' ? 'English' : 'বাংলা'}</span>
               </button>
 
+              {/* Wishlist Button (Phase 2) */}
+              <Link
+                href="/wishlist"
+                className="p-2 text-gray-600 hover:text-red-500 hover:bg-gray-100 rounded-full transition relative"
+                title="My Wishlist"
+              >
+                <Heart className="w-5 h-5" />
+              </Link>
+
+              {/* Notifications Popover (Phase 2) */}
+              {user && (
+                <div className="relative">
+                  <button
+                    onClick={() => setNotificationsOpen(!notificationsOpen)}
+                    className="p-2 text-gray-600 hover:text-emerald-600 hover:bg-gray-100 rounded-full transition relative"
+                    title="Notifications"
+                  >
+                    <Bell className="w-5 h-5" />
+                    {unreadNotifCount > 0 && (
+                      <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-white" />
+                    )}
+                  </button>
+
+                  {notificationsOpen && (
+                    <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 py-3 z-50 divide-y divide-gray-100">
+                      <div className="px-4 pb-2 flex items-center justify-between">
+                        <span className="text-xs font-bold text-gray-900">বিজ্ঞপ্তি (Notifications)</span>
+                        <span className="text-[10px] text-emerald-700 font-semibold">{unreadNotifCount} টি নতুন</span>
+                      </div>
+                      <div className="max-h-64 overflow-y-auto divide-y divide-gray-50">
+                        {notifications.length === 0 ? (
+                          <div className="p-4 text-center text-xs text-gray-400">কোনো নতুন বিজ্ঞপ্তি নেই</div>
+                        ) : (
+                          notifications.map((n) => (
+                            <div key={n.id} className="p-3 hover:bg-gray-50 transition text-xs">
+                              <p className="font-bold text-gray-900">{n.title}</p>
+                              <p className="text-gray-600 text-[11px] mt-0.5">{n.body}</p>
+                              <span className="text-[9px] text-gray-400 mt-1 block">
+                                {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Sell a Book Button */}
               <Link
                 href="/post-ad"
@@ -160,6 +230,17 @@ export default function Navbar() {
                         <BookOpen className="w-4 h-4 text-emerald-600" />
                         <span>{t('app.my_listings')}</span>
                       </Link>
+
+                      <button
+                        onClick={() => {
+                          setUserDropdownOpen(false);
+                          setOnboardingOpen(true);
+                        }}
+                        className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left"
+                      >
+                        <Sparkles className="w-4 h-4 text-emerald-600" />
+                        <span>পছন্দ পরিবর্তন করুন (Preferences)</span>
+                      </button>
 
                       {user.role === 'admin' && (
                         <Link
@@ -280,6 +361,17 @@ export default function Navbar() {
 
       {/* Global Auth Modal */}
       <AuthModal />
+
+      {/* Onboarding Preferences Modal (Section 9.1) */}
+      <OnboardingModal
+        isOpen={onboardingOpen}
+        onClose={() => setOnboardingOpen(false)}
+        onComplete={() => {
+          // Refresh page or trigger feed reload
+          window.location.reload();
+        }}
+      />
     </>
   );
 }
+

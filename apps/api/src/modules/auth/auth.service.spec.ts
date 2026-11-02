@@ -51,3 +51,4 @@ describe('AuthService (Phone OTP & Token Generation)', () => {
     await expect(authService.verifyOtp(phone, '000000')).rejects.toThrow('Invalid OTP code');
   });
 });
+

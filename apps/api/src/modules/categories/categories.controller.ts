@@ -53,3 +53,4 @@ export class CategoriesController {
     return this.db.deleteCategory(id);
   }
 }
+

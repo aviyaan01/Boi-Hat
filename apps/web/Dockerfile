@@ -25,3 +25,4 @@ COPY --from=builder /app/apps/web ./apps/web
 EXPOSE 3000
 
 CMD ["sh", "-c", "cd apps/web && npm run start"]
+

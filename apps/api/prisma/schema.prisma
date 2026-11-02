@@ -553,3 +553,4 @@ model Report {
 
   @@map("reports")
 }
+
