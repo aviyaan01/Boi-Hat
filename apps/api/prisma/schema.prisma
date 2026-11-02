@@ -1,0 +1,555 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  buyer
+  seller
+  merchant
+  admin
+}
+
+enum SubscriptionPlan {
+  free
+  basic
+  pro
+  premium
+}
+
+enum BookCondition {
+  new
+  like_new
+  good
+  acceptable
+}
+
+enum BookLanguage {
+  bn
+  en
+  ar
+  hi
+  ur
+  other
+}
+
+enum BookStatus {
+  pending_review
+  active
+  sold
+  inactive
+  removed
+}
+
+enum WeightBucket {
+  under_300g
+  between_300g_1kg
+  over_1kg
+}
+
+enum PaymentMethod {
+  cod
+  sslcommerz
+}
+
+enum PaymentStatus {
+  pending
+  paid
+  failed
+  refunded
+}
+
+enum OrderStatus {
+  pending
+  confirmed
+  shipped
+  delivered
+  cancelled
+  disputed
+}
+
+enum FeaturedPackage {
+  urgent_3d
+  featured_5d
+  featured_home_7d
+}
+
+enum FeaturedStatus {
+  active
+  expired
+  cancelled
+}
+
+enum DisputeStatus {
+  open
+  resolved_buyer
+  resolved_seller
+  closed
+}
+
+enum PayoutMethod {
+  bkash
+  bank
+}
+
+enum PayoutStatus {
+  pending
+  processing
+  paid
+  rejected
+}
+
+enum ReportTarget {
+  book
+  user
+  shop
+}
+
+enum ReportStatus {
+  open
+  actioned
+  dismissed
+}
+
+enum AuthorRequestStatus {
+  pending
+  approved
+  rejected
+}
+
+model User {
+  id                String    @id @default(uuid())
+  phone             String    @unique
+  name              String?
+  email             String?
+  role              Role      @default(buyer)
+  avatar_url        String?
+  city              String?   @default("Dhaka")
+  area              String?
+  rating_avg        Decimal   @default(0.0) @db.Decimal(3, 2)
+  rating_count      Int       @default(0)
+  is_phone_verified Boolean   @default(false)
+  is_banned         Boolean   @default(false)
+  otp_code          String?
+  otp_expires_at    DateTime?
+  token_version     Int       @default(1)
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+
+  shop              Shop?
+  books             Book[]              @relation("UserBooks")
+  wishlists         Wishlist[]
+  saved_searches    SavedSearch[]
+  user_preferences  UserPreference[]
+  behavior_events   UserBehaviorEvent[]
+  buyer_orders      Order[]             @relation("BuyerOrders")
+  seller_orders     Order[]             @relation("SellerOrders")
+  sent_messages     Message[]           @relation("SentMessages")
+  buyer_threads     Conversation[]      @relation("BuyerConversations")
+  seller_threads    Conversation[]      @relation("SellerConversations")
+  disputes_raised   Dispute[]           @relation("RaisedDisputes")
+  reviews_given     Review[]            @relation("ReviewsGiven")
+  reviews_received  Review[]            @relation("ReviewsReceived")
+  notifications     Notification[]
+  reports_made      Report[]            @relation("ReportsMade")
+  wallet            SellerWallet?
+
+  @@map("users")
+}
+
+model Shop {
+  id                     String           @id @default(uuid())
+  user_id                String           @unique
+  user                   User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  name                   String
+  logo_url               String?
+  cover_url              String?
+  trade_license_number   String?
+  trade_license_doc_url  String?
+  address                String
+  map_lat                Float?
+  map_lng                Float?
+  contact_phone          String
+  is_verified            Boolean          @default(false)
+  slug                   String           @unique
+  subscription_plan      SubscriptionPlan @default(free)
+  subscription_expires_at DateTime?
+  created_at             DateTime         @default(now())
+  updated_at             DateTime         @updatedAt
+
+  books                  Book[]
+  wallet                 SellerWallet?
+  featured_ads           FeaturedAd[]
+
+  @@map("shops")
+}
+
+model Category {
+  id         String         @id @default(uuid())
+  parent_id  String?
+  parent     Category?      @relation("CategoryHierarchy", fields: [parent_id], references: [id])
+  children   Category[]     @relation("CategoryHierarchy")
+  name_en    String
+  name_bn    String
+  level      Int            @default(1)
+  icon_url   String?
+  sort_order Int            @default(0)
+  slug       String         @unique
+  created_at DateTime       @default(now())
+  updated_at DateTime       @updatedAt
+
+  books      BookCategory[]
+
+  @@map("categories")
+}
+
+model Author {
+  id         String   @id @default(uuid())
+  name_en    String
+  name_bn    String
+  aliases    String[]
+  photo_url  String?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  books      Book[]
+
+  @@map("authors")
+}
+
+model Publisher {
+  id         String   @id @default(uuid())
+  name_en    String
+  name_bn    String
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  books      Book[]
+
+  @@map("publishers")
+}
+
+model Book {
+  id               String        @id @default(uuid())
+  seller_id        String
+  seller           User          @relation("UserBooks", fields: [seller_id], references: [id], onDelete: Cascade)
+  shop_id          String?
+  shop             Shop?         @relation(fields: [shop_id], references: [id], onDelete: SetNull)
+  title_en         String
+  title_bn         String
+  author_id        String?
+  author           Author?       @relation(fields: [author_id], references: [id], onDelete: SetNull)
+  publisher_id     String?
+  publisher        Publisher?    @relation(fields: [publisher_id], references: [id], onDelete: SetNull)
+  description      String
+  condition        BookCondition
+  language         BookLanguage  @default(bn)
+  price            Int
+  original_price   Int?
+  edition          String?
+  publication_year Int?
+  is_rare          Boolean       @default(false)
+  is_featured      Boolean       @default(false)
+  stock_count      Int           @default(1)
+  status           BookStatus    @default(active)
+  view_count       Int           @default(0)
+  weight_bucket    WeightBucket  @default(under_300g)
+  created_at       DateTime      @default(now())
+  updated_at       DateTime      @updatedAt
+
+  categories       BookCategory[]
+  images           BookImage[]
+  rare_details     RareBookDetail?
+  wishlists        Wishlist[]
+  conversations    Conversation[]
+  orders           Order[]
+  featured_ads     FeaturedAd[]
+  behavior_events  UserBehaviorEvent[]
+
+  @@map("books")
+}
+
+model BookCategory {
+  id          String   @id @default(uuid())
+  book_id     String
+  category_id String
+  book        Book     @relation(fields: [book_id], references: [id], onDelete: Cascade)
+  category    Category @relation(fields: [category_id], references: [id], onDelete: Cascade)
+
+  @@unique([book_id, category_id])
+  @@map("book_categories")
+}
+
+model BookImage {
+  id         String   @id @default(uuid())
+  book_id    String
+  book       Book     @relation(fields: [book_id], references: [id], onDelete: Cascade)
+  url        String
+  sort_order Int      @default(0)
+  is_primary Boolean  @default(false)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("book_images")
+}
+
+model RareBookDetail {
+  id                       String    @id @default(uuid())
+  book_id                  String    @unique
+  book                     Book      @relation(fields: [book_id], references: [id], onDelete: Cascade)
+  printing_condition_notes String?
+  authenticity_note        String?
+  provenance               String?
+  is_verified_rare         Boolean   @default(false)
+  verified_by_admin_id     String?
+  verified_at              DateTime?
+  created_at               DateTime  @default(now())
+  updated_at               DateTime  @updatedAt
+
+  @@map("rare_book_details")
+}
+
+model PendingAuthorRequest {
+  id         String              @id @default(uuid())
+  name_en    String
+  name_bn    String
+  status     AuthorRequestStatus @default(pending)
+  created_at DateTime            @default(now())
+  updated_at DateTime            @updatedAt
+
+  @@map("pending_author_requests")
+}
+
+model Wishlist {
+  id         String   @id @default(uuid())
+  user_id    String
+  book_id    String
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  book       Book     @relation(fields: [book_id], references: [id], onDelete: Cascade)
+  created_at DateTime @default(now())
+
+  @@unique([user_id, book_id])
+  @@map("wishlists")
+}
+
+model SavedSearch {
+  id             String   @id @default(uuid())
+  user_id        String
+  user           User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  query_json     Json
+  notify_enabled Boolean  @default(true)
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  @@map("saved_searches")
+}
+
+model UserPreference {
+  id         String   @id @default(uuid())
+  user_id    String
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  type       String
+  ref_id     String
+  weight     Float    @default(1.0)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("user_preferences")
+}
+
+model UserBehaviorEvent {
+  id          String   @id @default(uuid())
+  user_id     String
+  user        User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  book_id     String?
+  book        Book?    @relation(fields: [book_id], references: [id], onDelete: SetNull)
+  action_type String
+  metadata    Json     @default("{}")
+  created_at  DateTime @default(now())
+
+  @@map("user_behavior_events")
+}
+
+model Conversation {
+  id         String    @id @default(uuid())
+  buyer_id   String
+  seller_id  String
+  book_id    String
+  buyer      User      @relation("BuyerConversations", fields: [buyer_id], references: [id], onDelete: Cascade)
+  seller     User      @relation("SellerConversations", fields: [seller_id], references: [id], onDelete: Cascade)
+  book       Book      @relation(fields: [book_id], references: [id], onDelete: Cascade)
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+
+  messages   Message[]
+
+  @@unique([buyer_id, seller_id, book_id])
+  @@map("conversations")
+}
+
+model Message {
+  id              String       @id @default(uuid())
+  conversation_id String
+  conversation    Conversation @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+  sender_id       String
+  sender          User         @relation("SentMessages", fields: [sender_id], references: [id], onDelete: Cascade)
+  text            String
+  read_at         DateTime?
+  created_at      DateTime     @default(now())
+
+  @@map("messages")
+}
+
+model Order {
+  id                        String        @id @default(uuid())
+  buyer_id                  String
+  buyer                     User          @relation("BuyerOrders", fields: [buyer_id], references: [id], onDelete: Cascade)
+  seller_id                 String
+  seller                    User          @relation("SellerOrders", fields: [seller_id], references: [id], onDelete: Cascade)
+  book_id                   String
+  book                      Book          @relation(fields: [book_id], references: [id], onDelete: Cascade)
+  price                     Int
+  delivery_fee              Int           @default(60)
+  platform_fee              Int           @default(0)
+  total_amount              Int
+  payment_method            PaymentMethod @default(cod)
+  payment_status            PaymentStatus @default(pending)
+  order_status              OrderStatus   @default(pending)
+  delivery_address          String
+  courier_provider          String?
+  courier_tracking_id       String?
+  delivered_at              DateTime?
+  dispute_window_expires_at DateTime?
+  created_at                DateTime      @default(now())
+  updated_at                DateTime      @updatedAt
+
+  payments                  Payment[]
+  disputes                  Dispute[]
+  reviews                   Review[]
+
+  @@map("orders")
+}
+
+model Payment {
+  id                      String   @id @default(uuid())
+  order_id                String
+  order                   Order    @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  provider                String
+  provider_transaction_id String?
+  amount                  Int
+  status                  String
+  raw_payload             Json?
+  created_at              DateTime @default(now())
+  updated_at              DateTime @updatedAt
+
+  @@map("payments")
+}
+
+model SellerWallet {
+  id                String          @id @default(uuid())
+  user_id           String?         @unique
+  user              User?           @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  shop_id           String?         @unique
+  shop              Shop?           @relation(fields: [shop_id], references: [id], onDelete: Cascade)
+  available_balance Int             @default(0)
+  pending_balance   Int             @default(0)
+  updated_at        DateTime        @updatedAt
+
+  payout_requests   PayoutRequest[]
+
+  @@map("seller_wallets")
+}
+
+model PayoutRequest {
+  id           String       @id @default(uuid())
+  wallet_id    String
+  wallet       SellerWallet @relation(fields: [wallet_id], references: [id], onDelete: Cascade)
+  amount       Int
+  method       PayoutMethod @default(bkash)
+  status       PayoutStatus @default(pending)
+  requested_at DateTime     @default(now())
+  processed_at DateTime?
+
+  @@map("payout_requests")
+}
+
+model Dispute {
+  id               String        @id @default(uuid())
+  order_id         String
+  order            Order         @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  raised_by        String
+  raiser           User          @relation("RaisedDisputes", fields: [raised_by], references: [id], onDelete: Cascade)
+  reason           String
+  status           DisputeStatus @default(open)
+  resolution_notes String?
+  admin_id         String?
+  created_at       DateTime      @default(now())
+  updated_at       DateTime      @updatedAt
+
+  @@map("disputes")
+}
+
+model Review {
+  id          String   @id @default(uuid())
+  order_id    String
+  order       Order    @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  reviewer_id String
+  reviewer    User     @relation("ReviewsGiven", fields: [reviewer_id], references: [id], onDelete: Cascade)
+  reviewee_id String
+  reviewee    User     @relation("ReviewsReceived", fields: [reviewee_id], references: [id], onDelete: Cascade)
+  rating      Int
+  comment     String?
+  created_at  DateTime @default(now())
+
+  @@map("reviews")
+}
+
+model FeaturedAd {
+  id           String          @id @default(uuid())
+  book_id      String?
+  book         Book?           @relation(fields: [book_id], references: [id], onDelete: Cascade)
+  shop_id      String?
+  shop         Shop?           @relation(fields: [shop_id], references: [id], onDelete: Cascade)
+  package_type FeaturedPackage
+  fee_paid     Int
+  starts_at    DateTime
+  expires_at   DateTime
+  status       FeaturedStatus  @default(active)
+  payment_id   String?
+  created_at   DateTime        @default(now())
+  updated_at   DateTime        @updatedAt
+
+  @@map("featured_ads")
+}
+
+model Notification {
+  id         String   @id @default(uuid())
+  user_id    String
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  type       String
+  title      String
+  body       String
+  data_json  Json?
+  is_read    Boolean  @default(false)
+  created_at DateTime @default(now())
+
+  @@map("notifications")
+}
+
+model Report {
+  id          String       @id @default(uuid())
+  reporter_id String
+  reporter    User         @relation("ReportsMade", fields: [reporter_id], references: [id], onDelete: Cascade)
+  target_type ReportTarget
+  target_id   String
+  reason      String
+  status      ReportStatus @default(open)
+  created_at  DateTime     @default(now())
+  updated_at  DateTime     @updatedAt
+
+  @@map("reports")
+}
