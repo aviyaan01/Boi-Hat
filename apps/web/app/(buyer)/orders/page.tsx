@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../lib/auth';
 import { useI18n } from '../../../lib/i18n';
 import { fetchApi } from '../../../lib/api';
@@ -15,9 +16,13 @@ import {
   AlertCircle,
   MapPin,
   ExternalLink,
+  Star,
+  CreditCard,
+  X,
 } from 'lucide-react';
 
 export default function OrdersPage() {
+  const router = useRouter();
   const { user, openAuthModal } = useAuth();
   const { locale, t, formatPrice } = useI18n();
   const [orders, setOrders] = useState<OrderDetail[]>([]);
@@ -26,6 +31,13 @@ export default function OrdersPage() {
   const [trackingIdInput, setTrackingIdInput] = useState('');
   const [disputeModalOrder, setDisputeModalOrder] = useState<OrderDetail | null>(null);
   const [disputeReason, setDisputeReason] = useState('');
+
+  // Review modal state
+  const [reviewModalOrder, setReviewModalOrder] = useState<OrderDetail | null>(null);
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState('');
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
 
   const loadOrders = async () => {
     setLoading(true);
@@ -70,6 +82,56 @@ export default function OrdersPage() {
       setTrackingIdInput('');
     } else {
       alert(res.error?.message || 'Status update failed');
+    }
+  };
+
+  const handlePayOnline = async (order: OrderDetail) => {
+    try {
+      const res = await fetchApi<any>('/payments/init', {
+        method: 'POST',
+        body: JSON.stringify({
+          amount: order.total_amount,
+          order_id: order.id,
+        }),
+      });
+
+      if (res.success && res.data?.gateway_url) {
+        router.push(res.data.gateway_url);
+      } else {
+        alert(res.error?.message || 'Payment initiation failed');
+      }
+    } catch (e: any) {
+      alert(e.message || 'Payment initiation error');
+    }
+  };
+
+  const handleReviewSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reviewModalOrder) return;
+    setReviewLoading(true);
+    setReviewError(null);
+
+    try {
+      const res = await fetchApi(`/orders/${reviewModalOrder.id}/review`, {
+        method: 'POST',
+        body: JSON.stringify({
+          rating,
+          comment: comment.trim() || undefined,
+        }),
+      });
+
+      if (res.success) {
+        setReviewModalOrder(null);
+        setComment('');
+        setRating(5);
+        await loadOrders();
+      } else {
+        setReviewError(res.error?.message || 'রিভিউ জমা দেওয়া সম্ভব হয়নি');
+      }
+    } catch (err: any) {
+      setReviewError(err.message || 'নেটওয়ার্ক সমস্যা');
+    } finally {
+      setReviewLoading(false);
     }
   };
 
@@ -245,10 +307,20 @@ export default function OrdersPage() {
                   {/* Buyer Action Controls */}
                   {isBuyer && (
                     <div className="flex items-center gap-2">
+                      {order.payment_status === PaymentStatus.PENDING && (
+                        <button
+                          onClick={() => handlePayOnline(order)}
+                          className="px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold shadow-sm transition flex items-center gap-1.5 active:scale-95"
+                        >
+                          <CreditCard className="w-3.5 h-3.5" />
+                          <span>অনলাইন পেমেন্ট করুন</span>
+                        </button>
+                      )}
+
                       {order.order_status === OrderStatus.SHIPPED && (
                         <button
                           onClick={() => handleUpdateStatus(order.id, OrderStatus.DELIVERED)}
-                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-sm transition flex items-center gap-1"
+                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-sm transition flex items-center gap-1 active:scale-95"
                         >
                           <CheckCircle2 className="w-3.5 h-3.5" />
                           <span>বই হাতে পেয়েছি (Mark Delivered)</span>
@@ -256,13 +328,37 @@ export default function OrdersPage() {
                       )}
 
                       {order.order_status === OrderStatus.DELIVERED && (
-                        <button
-                          onClick={() => setDisputeModalOrder(order)}
-                          className="px-3 py-1.5 bg-white border border-red-300 text-red-600 hover:bg-red-50 rounded-xl text-xs font-semibold transition flex items-center gap-1"
-                        >
-                          <ShieldAlert className="w-3.5 h-3.5" />
-                          <span>সমস্যা জানাচ্ছি (Raise Dispute)</span>
-                        </button>
+                        <>
+                          {(order as any).review ? (
+                            <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 px-3 py-1 rounded-xl text-xs text-amber-900">
+                              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />
+                              <span className="font-bold">
+                                রেটিং: {(order as any).review.rating}/5
+                              </span>
+                              {(order as any).review.comment && (
+                                <span className="text-[11px] text-gray-500 line-clamp-1 italic">
+                                  &quot;{(order as any).review.comment}&quot;
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setReviewModalOrder(order)}
+                              className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 rounded-xl text-xs font-bold transition flex items-center gap-1 active:scale-95"
+                            >
+                              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />
+                              <span>রিভিউ দিন (Review)</span>
+                            </button>
+                          )}
+
+                          <button
+                            onClick={() => setDisputeModalOrder(order)}
+                            className="px-3 py-1.5 bg-white border border-red-300 text-red-600 hover:bg-red-50 rounded-xl text-xs font-semibold transition flex items-center gap-1"
+                          >
+                            <ShieldAlert className="w-3.5 h-3.5" />
+                            <span>সমস্যা জানাচ্ছি (Raise Dispute)</span>
+                          </button>
+                        </>
                       )}
                     </div>
                   )}
@@ -347,6 +443,100 @@ export default function OrdersPage() {
               <button
                 type="button"
                 onClick={() => setDisputeModalOrder(null)}
+                className="px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl text-xs"
+              >
+                বাতিল
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+      {/* Review Modal (Section 5 & 8) */}
+      {reviewModalOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+          <form
+            onSubmit={handleReviewSubmit}
+            className="bg-white max-w-md w-full rounded-3xl p-6 shadow-2xl space-y-4"
+          >
+            <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+              <h3 className="font-bold text-base text-gray-900 flex items-center gap-2">
+                <Star className="w-5 h-5 text-amber-500 fill-amber-400" />
+                <span>বই ও বিক্রেতার সার্ভিস রেটিং</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setReviewModalOrder(null)}
+                className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {reviewError && (
+              <div className="p-3 bg-red-50 text-red-700 text-xs rounded-xl border border-red-200">
+                {reviewError}
+              </div>
+            )}
+
+            <div>
+              <p className="text-xs text-gray-500 mb-2">আপনার রেটিং নির্বাচন করুন (১ - ৫ স্টার):</p>
+              <div className="flex items-center justify-center gap-2 py-3 bg-amber-50/50 rounded-2xl border border-amber-100">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setRating(star)}
+                    className="p-1 hover:scale-125 transition active:scale-95"
+                  >
+                    <Star
+                      className={`w-8 h-8 ${
+                        star <= rating
+                          ? 'fill-amber-400 text-amber-500'
+                          : 'fill-gray-200 text-gray-300'
+                      }`}
+                    />
+                  </button>
+                ))}
+              </div>
+              <div className="text-center mt-1">
+                <span className="text-xs font-bold text-amber-800">
+                  {rating === 5
+                    ? 'অসাধারণ (৫/৫)'
+                    : rating === 4
+                    ? 'ভালো (৪/৫)'
+                    : rating === 3
+                    ? 'মোটামুটি (৩/৫)'
+                    : rating === 2
+                    ? 'সন্তোষজনক নয় (২/৫)'
+                    : 'খারাপ (১/৫)'}
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-gray-700 block mb-1">
+                আপনার মতামত / রিভিউ (ঐচ্ছিক):
+              </label>
+              <textarea
+                rows={3}
+                placeholder="বইটির অবস্থা ও বিক্রেতার সার্ভিস সম্পর্কে লিখুন..."
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                className="w-full p-3 text-xs rounded-xl border border-gray-300 focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="submit"
+                disabled={reviewLoading}
+                className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md transition disabled:opacity-50"
+              >
+                {reviewLoading ? 'জমা দেওয়া হচ্ছে...' : 'রিভিউ সাবমিট করুন'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setReviewModalOrder(null)}
                 className="px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl text-xs"
               >
                 বাতিল

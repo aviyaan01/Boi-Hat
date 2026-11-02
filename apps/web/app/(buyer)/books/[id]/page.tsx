@@ -20,7 +20,9 @@ import {
   AlertCircle,
   ChevronRight,
   Share2,
+  Zap,
 } from 'lucide-react';
+import BoostModal from '../../../../components/BoostModal';
 
 export default function BookDetailPage() {
   const { id } = useParams();
@@ -37,6 +39,7 @@ export default function BookDetailPage() {
   const [orderSuccess, setOrderSuccess] = useState<any | null>(null);
   const [offerText, setOfferText] = useState('');
   const [offerModalOpen, setOfferModalOpen] = useState(false);
+  const [boostModalOpen, setBoostModalOpen] = useState(false);
 
   useEffect(() => {
     async function loadBook() {
@@ -306,39 +309,67 @@ export default function BookDetailPage() {
           )}
 
           {/* Primary Action Buttons */}
-          <div className="space-y-3 pt-2">
-            <button
-              onClick={() => {
-                if (!user) openAuthModal();
-                else setOrderModalOpen(true);
-              }}
-              className="w-full py-4 px-6 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white font-bold rounded-2xl shadow-lg hover:shadow-xl transition transform active:scale-95 flex items-center justify-center gap-2 text-base"
-            >
-              <ShoppingBag className="w-5 h-5" />
-              <span>{t('book_detail.buy_cod')}</span>
-            </button>
-
-            <div className="grid grid-cols-2 gap-3">
+          {user?.id === book.seller_id ? (
+            <div className="p-5 bg-gradient-to-r from-amber-50 to-yellow-50 rounded-3xl border border-amber-200 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-amber-600" />
+                  <span>এটি আপনার নিজের লিস্টিং</span>
+                </span>
+                {book.is_featured && (
+                  <span className="text-[10px] bg-amber-500 text-white font-bold px-2 py-0.5 rounded-full">
+                    সক্রিয় বুস্ট রয়েছে
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-amber-800">
+                দ্রুত বই বিক্রি করতে জরুরি বা ফিচার্ড বিজ্ঞাপনে বুস্ট করুন। সার্চে সবার উপরে দেখাবে।
+              </p>
               <button
-                onClick={() => handleStartChat()}
-                className="py-3 px-4 bg-white hover:bg-gray-50 border border-gray-300 text-gray-800 font-semibold rounded-2xl transition flex items-center justify-center gap-2 text-xs sm:text-sm"
+                onClick={() => setBoostModalOpen(true)}
+                className="w-full py-3 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2 active:scale-95"
               >
-                <MessageSquare className="w-4 h-4 text-emerald-600" />
-                <span>{t('book_detail.chat_seller')}</span>
+                <Sparkles className="w-4 h-4" />
+                <span>
+                  {book.is_featured ? 'বিজ্ঞাপন রিনিউ / বুস্ট করুন' : 'বিজ্ঞাপন বুস্ট করুন (Boost Listing)'}
+                </span>
               </button>
-
+            </div>
+          ) : (
+            <div className="space-y-3 pt-2">
               <button
                 onClick={() => {
                   if (!user) openAuthModal();
-                  else setOfferModalOpen(true);
+                  else setOrderModalOpen(true);
                 }}
-                className="py-3 px-4 bg-white hover:bg-amber-50 border border-amber-300 text-amber-900 font-semibold rounded-2xl transition flex items-center justify-center gap-2 text-xs sm:text-sm"
+                className="w-full py-4 px-6 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white font-bold rounded-2xl shadow-lg hover:shadow-xl transition transform active:scale-95 flex items-center justify-center gap-2 text-base"
               >
-                <Sparkles className="w-4 h-4 text-amber-600" />
-                <span>{t('book_detail.make_offer')}</span>
+                <ShoppingBag className="w-5 h-5" />
+                <span>{t('book_detail.buy_cod')}</span>
               </button>
+
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => handleStartChat()}
+                  className="py-3 px-4 bg-white hover:bg-gray-50 border border-gray-300 text-gray-800 font-semibold rounded-2xl transition flex items-center justify-center gap-2 text-xs sm:text-sm"
+                >
+                  <MessageSquare className="w-4 h-4 text-emerald-600" />
+                  <span>{t('book_detail.chat_seller')}</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    if (!user) openAuthModal();
+                    else setOfferModalOpen(true);
+                  }}
+                  className="py-3 px-4 bg-white hover:bg-amber-50 border border-amber-300 text-amber-900 font-semibold rounded-2xl transition flex items-center justify-center gap-2 text-xs sm:text-sm"
+                >
+                  <Sparkles className="w-4 h-4 text-amber-600" />
+                  <span>{t('book_detail.make_offer')}</span>
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
@@ -483,6 +514,19 @@ export default function BookDetailPage() {
             </div>
           </div>
         </div>
+      )}
+      {/* Boost Modal (Section 10.1) */}
+      {boostModalOpen && book && (
+        <BoostModal
+          bookId={book.id}
+          bookTitle={title}
+          isOpen={true}
+          onClose={() => setBoostModalOpen(false)}
+          onSuccess={() => {
+            setBook({ ...book, is_featured: true });
+            setBoostModalOpen(false);
+          }}
+        />
       )}
     </div>
   );

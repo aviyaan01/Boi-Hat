@@ -6,7 +6,7 @@ import { BookDetail, BookCondition } from '@boi-hat/shared-types';
 import { useI18n } from '../lib/i18n';
 import { useAuth } from '../lib/auth';
 import { fetchApi } from '../lib/api';
-import { MapPin, Sparkles, Award, Heart } from 'lucide-react';
+import { MapPin, Sparkles, Award, Heart, Zap } from 'lucide-react';
 
 interface BookCardProps {
   book: BookDetail;
@@ -23,6 +23,9 @@ export default function BookCard({ book, initialWishlisted = false }: BookCardPr
     locale === 'bn'
       ? book.author?.name_bn || book.author?.name_en
       : book.author?.name_en || book.author?.name_bn;
+
+  const isUrgent = (book as any).featured_package === 'urgent_3d';
+  const showFeaturedBadge = (book as any).display_featured !== false && (book.is_featured || (book as any).featured_package);
 
   const primaryImage =
     book.images?.find((img) => img.is_primary)?.url ||
@@ -60,16 +63,24 @@ export default function BookCard({ book, initialWishlisted = false }: BookCardPr
   return (
     <Link
       href={`/books/${book.id}`}
-      className="group bg-white rounded-2xl border border-gray-200 hover:border-emerald-300 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col overflow-hidden relative"
+      className={`group bg-white rounded-2xl border ${
+        showFeaturedBadge ? 'border-amber-300 shadow-amber-100/50' : 'border-gray-200'
+      } hover:border-emerald-300 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col overflow-hidden relative`}
     >
-      {/* Featured / Rare Ribbon */}
-      {book.is_featured && (
-        <div className="absolute top-3 left-3 z-10 bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-md flex items-center gap-1">
+      {/* Featured / Urgent / Rare Ribbon */}
+      {isUrgent && showFeaturedBadge ? (
+        <div className="absolute top-3 left-3 z-10 bg-gradient-to-r from-red-600 to-rose-500 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full shadow-md flex items-center gap-1">
+          <Zap className="w-3 h-3 fill-white" />
+          <span>জরুরি</span>
+        </div>
+      ) : showFeaturedBadge ? (
+        <div className="absolute top-3 left-3 z-10 bg-gradient-to-r from-amber-500 to-yellow-500 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full shadow-md flex items-center gap-1">
           <Sparkles className="w-3 h-3" />
           <span>ফিচার্ড</span>
         </div>
-      )}
-      {book.is_rare && (
+      ) : null}
+
+      {book.is_rare && !showFeaturedBadge && (
         <div className="absolute top-3 left-3 z-10 bg-indigo-900/90 backdrop-blur-sm text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-md flex items-center gap-1 border border-amber-400/40">
           <Award className="w-3 h-3 text-amber-400" />
           <span>দুর্লভ</span>

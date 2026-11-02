@@ -224,5 +224,48 @@ describe('Boi-Hat End-to-End User Flow (Section 17 & 20)', () => {
     expect(deliverRes.body.data.delivered_at).toBeTruthy();
     expect(deliverRes.body.data.dispute_window_expires_at).toBeTruthy();
   });
+
+  // Step 9: Buyer leaves a 5-star review on delivered order (Phase 3)
+  it('Step 9: Buyer submits 5-star review for delivered order', async () => {
+    const reviewRes = await request(app.getHttpServer())
+      .post(`/orders/${orderId}/review`)
+      .set('Authorization', `Bearer ${buyerToken}`)
+      .send({
+        rating: 5,
+        comment: 'অসাধারণ সার্ভিস! বইটি খুব যত্ন সহকারে পৌঁছেছে।',
+      })
+      .expect(201);
+
+    expect(reviewRes.body.success).toBe(true);
+    expect(reviewRes.body.data.rating).toBe(5);
+    expect(reviewRes.body.data.comment).toContain('অসাধারণ');
+  });
+
+  // Step 10: Seller checks wallet and verifies pending balance credit (Phase 3)
+  it('Step 10: Seller views wallet and sees pending escrow balance', async () => {
+    const walletRes = await request(app.getHttpServer())
+      .get('/wallet')
+      .set('Authorization', `Bearer ${sellerToken}`)
+      .expect(200);
+
+    expect(walletRes.body.success).toBe(true);
+    expect(walletRes.body.data.pending_balance).toBeGreaterThan(0);
+    expect(walletRes.body.data.transactions.length).toBeGreaterThan(0);
+  });
+
+  // Step 11: Seller features a listing with urgent ad package (Phase 3)
+  it('Step 11: Seller boosts listing with ad package', async () => {
+    const featureRes = await request(app.getHttpServer())
+      .post(`/books/${createdBookId}/feature`)
+      .set('Authorization', `Bearer ${sellerToken}`)
+      .send({
+        package_type: 'urgent_3d',
+        pay_now: false,
+      })
+      .expect(201);
+
+    expect(featureRes.body.success).toBe(true);
+    expect(featureRes.body.data.ad.package_type).toBe('urgent_3d');
+  });
 });
 

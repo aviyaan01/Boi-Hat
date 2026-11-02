@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
 import {
   Role,
@@ -10,10 +10,52 @@ import {
   PaymentMethod,
   PaymentStatus,
   BookFilterQuery,
+  FeaturedPackage,
+  FeaturedStatus,
+  PayoutMethod,
+  PayoutStatus,
+  AdPackage,
+  PayoutRequestDto,
 } from '@boi-hat/shared-types';
 import { CATEGORIES_SEED, AUTHORS_SEED, PUBLISHERS_SEED, SHOPS_SEED } from '../../prisma/seed/seedData';
 import { generate160Books } from '../../prisma/seed/seedBooks';
 import { v4 as uuidv4 } from 'uuid';
+
+export const AD_PACKAGES: AdPackage[] = [
+  {
+    id: FeaturedPackage.URGENT_3D,
+    name_en: 'Urgent Sale (3 Days)',
+    name_bn: 'জরুরি বিক্রি (৩ দিন)',
+    duration_days: 3,
+    price: 20,
+    badge_label_en: 'Urgent',
+    badge_label_bn: 'জরুরি',
+    description_en: 'Highlight your listing with an urgent badge to sell within 72 hours.',
+    description_bn: 'বইটি দ্রুত বিক্রি করতে ৩ দিনের জন্য জরুরি ব্যাজ সহ সবার উপরে দেখান।',
+  },
+  {
+    id: FeaturedPackage.FEATURED_5D,
+    name_en: 'Featured Listing (5 Days)',
+    name_bn: 'ফিচার্ড বিজ্ঞাপন (৫ দিন)',
+    duration_days: 5,
+    price: 35,
+    badge_label_en: 'Featured',
+    badge_label_bn: 'ফিচার্ড',
+    description_en: 'Promote your book at the top of category and search results for 5 days.',
+    description_bn: '৫ দিনের জন্য ক্যাটাগরি ও সার্চ রেজাল্ট পেজের শীর্ষে সবার উপরে বিজ্ঞাপন।',
+  },
+  {
+    id: FeaturedPackage.FEATURED_HOME_7D,
+    name_en: 'Homepage Spotlight (7 Days)',
+    name_bn: 'হোমপেজ ফিচার্ড (৭ দিন)',
+    duration_days: 7,
+    price: 50,
+    badge_label_en: 'Top Featured',
+    badge_label_bn: 'টপ ফিচার্ড',
+    description_en: 'Maximum visibility on the homepage and across all searches for 7 days.',
+    description_bn: '৭ দিনের জন্য হোমপেজের মূল ব্যানারে এবং সব ব্রাউজিং পেজে সর্বোচ্চ ভিউ।',
+  },
+];
 
 @Injectable()
 export class DatabaseService implements OnModuleInit {
@@ -37,6 +79,15 @@ export class DatabaseService implements OnModuleInit {
   private reports: any[] = [];
   private userPreferences: any[] = [];
   private userBehaviorEvents: any[] = [];
+  private wishlists: any[] = [];
+  private savedSearches: any[] = [];
+  private notifications: any[] = [];
+  private featuredAds: any[] = [];
+  private payments: any[] = [];
+  private sellerWallets: any[] = [];
+  private payoutRequests: any[] = [];
+  private walletTransactions: any[] = [];
+  private reviews: any[] = [];
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -308,6 +359,101 @@ export class DatabaseService implements OnModuleInit {
       updated_at: new Date().toISOString(),
     };
     this.orders.push(demoOrder);
+
+    // 8. Seed Phase 3 Data: Delivered Order, Reviews, Wallets, and Featured Ad
+    const deliveredBook = this.books[1] || demoBook;
+    const deliveredOrder = {
+      id: 'order-delivered-demo-1',
+      buyer_id: buyerUser.id,
+      seller_id: sellerUser1.id,
+      book_id: deliveredBook.id,
+      price: deliveredBook.price,
+      delivery_fee: 60,
+      platform_fee: 0,
+      total_amount: deliveredBook.price + 60,
+      payment_method: PaymentMethod.COD,
+      payment_status: PaymentStatus.PAID,
+      order_status: OrderStatus.DELIVERED,
+      delivery_address: 'House 14, Road 7, Sector 4, Uttara, Dhaka-1230',
+      courier_provider: 'Pathao Courier',
+      courier_tracking_id: 'PT-DHK-88123',
+      delivered_at: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString(),
+      dispute_window_expires_at: new Date(Date.now() - 1 * 24 * 3600 * 1000).toISOString(),
+      escrow_credited: true,
+      escrow_released: true,
+      created_at: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString(),
+      updated_at: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString(),
+    };
+    this.orders.push(deliveredOrder);
+
+    // Review for delivered order
+    const demoReview = {
+      id: 'rev-demo-1',
+      order_id: deliveredOrder.id,
+      reviewer_id: buyerUser.id,
+      reviewee_id: sellerUser1.id,
+      rating: 5,
+      comment: 'খুব ভালো প্যাকেজিং এবং অক্ষত বই পেয়েছি। বিক্রেতার সাথে যোগাযোগ খুব সহজ ছিল। ধন্যবাদ বই-হাট!',
+      created_at: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString(),
+    };
+    this.reviews.push(demoReview);
+
+    // Wallets for sellers
+    this.sellerWallets.push({
+      id: 'wallet-seller-1',
+      user_id: sellerUser1.id,
+      shop_id: this.shops[0]?.id || null,
+      available_balance: 750,
+      pending_balance: 320,
+      updated_at: new Date().toISOString(),
+    });
+
+    this.sellerWallets.push({
+      id: 'wallet-seller-2',
+      user_id: sellerUser2.id,
+      shop_id: this.shops[1]?.id || null,
+      available_balance: 450,
+      pending_balance: 0,
+      updated_at: new Date().toISOString(),
+    });
+
+    // Seed transactions for seller 1
+    this.walletTransactions.push(
+      {
+        id: 'trx-seed-1',
+        wallet_id: 'wallet-seller-1',
+        amount: deliveredBook.price,
+        type: 'credit_available',
+        reference_id: deliveredOrder.id,
+        description: `অর্ডার #${deliveredOrder.id.slice(0, 8)} - বায়ার প্রোটেকশন সময় সমাপ্তে ব্যালেন্স অবমুক্ত`,
+        created_at: new Date(Date.now() - 1 * 24 * 3600 * 1000).toISOString(),
+      },
+      {
+        id: 'trx-seed-2',
+        wallet_id: 'wallet-seller-1',
+        amount: 320,
+        type: 'credit_pending',
+        reference_id: 'order-pending-demo',
+        description: 'অর্ডার ডেলিভারি সম্পন্ন (৪৮ ঘণ্টা বায়ার প্রোটেকশন চালু)',
+        created_at: new Date(Date.now() - 12 * 3600 * 1000).toISOString(),
+      },
+    );
+
+    // Featured ad for first book
+    this.books[0].is_featured = true;
+    this.featuredAds.push({
+      id: 'ad-seed-1',
+      book_id: this.books[0].id,
+      shop_id: this.shops[0]?.id || null,
+      package_type: FeaturedPackage.FEATURED_HOME_7D,
+      fee_paid: 50,
+      starts_at: new Date(Date.now() - 1 * 24 * 3600 * 1000).toISOString(),
+      expires_at: new Date(Date.now() + 6 * 24 * 3600 * 1000).toISOString(),
+      status: FeaturedStatus.ACTIVE,
+      payment_id: 'pay-seed-1',
+      created_at: new Date(Date.now() - 1 * 24 * 3600 * 1000).toISOString(),
+      updated_at: new Date().toISOString(),
+    });
   }
 
   // --- Users Methods ---
@@ -390,6 +536,7 @@ export class DatabaseService implements OnModuleInit {
       active_listings_count: activeListings.length,
       joined_at: user.created_at,
       listings: activeListings.map((b) => this.hydrateBook(b)),
+      reviews: (await this.getReviewsForUser(id)).slice(0, 10),
     };
   }
 
@@ -485,8 +632,16 @@ export class DatabaseService implements OnModuleInit {
     const categories = this.categories.filter((c) => catIds.includes(c.id));
     const rare_details = this.rareBookDetails.find((r) => r.book_id === b.id) || null;
 
+    const activeAd = this.featuredAds.find(
+      (fa) => fa.book_id === b.id && fa.status === FeaturedStatus.ACTIVE && new Date(fa.expires_at) > new Date(),
+    );
+    const isFeatured = !!activeAd || b.is_featured;
+    const featuredPackage = activeAd ? activeAd.package_type : (b.is_featured ? FeaturedPackage.FEATURED_5D : null);
+
     return {
       ...b,
+      is_featured: isFeatured,
+      featured_package: featuredPackage,
       author,
       publisher,
       seller: seller
@@ -599,8 +754,21 @@ export class DatabaseService implements OnModuleInit {
     const start = (page - 1) * limit;
     const paginated = matched.slice(start, start + limit);
 
+    // Section 10.1: Visual cap of max 2-3 "Featured" badges per results page
+    let featuredBadgesOnPage = 0;
+    const data = paginated.map((b) => {
+      const hydrated = this.hydrateBook(b);
+      if (hydrated.is_featured && featuredBadgesOnPage < 3) {
+        featuredBadgesOnPage++;
+        hydrated.display_featured = true;
+      } else {
+        hydrated.display_featured = false;
+      }
+      return hydrated;
+    });
+
     return {
-      data: paginated.map((b) => this.hydrateBook(b)),
+      data,
       meta: {
         page,
         limit,
@@ -842,8 +1010,34 @@ export class DatabaseService implements OnModuleInit {
       if (order.payment_method === PaymentMethod.COD) {
         order.payment_status = PaymentStatus.PAID;
       }
+
+      // Escrow flow: credit pending balance to seller's wallet
+      if (!order.escrow_credited) {
+        order.escrow_credited = true;
+        const wallet = await this.getOrCreateWallet(order.seller_id);
+        const earning = order.price - (order.platform_fee || 0);
+        wallet.pending_balance += earning;
+        wallet.updated_at = now.toISOString();
+
+        this.walletTransactions.push({
+          id: `trx-${uuidv4()}`,
+          wallet_id: wallet.id,
+          amount: earning,
+          type: 'credit_pending',
+          reference_id: order.id,
+          description: `অর্ডার #${order.id.slice(0, 8)} ডেলিভারি সম্পন্ন (৪৮ ঘণ্টা বায়ার প্রোটেকশন চালু)`,
+          created_at: now.toISOString(),
+        });
+      }
     }
     order.updated_at = new Date().toISOString();
+    return this.hydrateOrder(order);
+  }
+
+  async updateOrder(orderId: string, data: Partial<any>) {
+    const order = this.orders.find((o) => o.id === orderId);
+    if (!order) return null;
+    Object.assign(order, data, { updated_at: new Date().toISOString() });
     return this.hydrateOrder(order);
   }
 
@@ -851,19 +1045,25 @@ export class DatabaseService implements OnModuleInit {
     const book = this.books.find((b) => b.id === order.book_id);
     const buyer = this.users.find((u) => u.id === order.buyer_id);
     const seller = this.users.find((u) => u.id === order.seller_id);
+    const review = this.reviews.find((r) => r.order_id === order.id) || null;
+
     return {
       ...order,
       book: book ? this.hydrateBook(book) : null,
       buyer: buyer ? { id: buyer.id, name: buyer.name, phone: buyer.phone } : null,
       seller: seller ? { id: seller.id, name: seller.name, phone: seller.phone } : null,
+      review: review
+        ? {
+            id: review.id,
+            rating: review.rating,
+            comment: review.comment,
+            created_at: review.created_at,
+          }
+        : null,
     };
   }
 
   // --- Wishlist, Preferences & Saved Searches (Phase 2) ---
-  private wishlists: any[] = [];
-  private savedSearches: any[] = [];
-  private notifications: any[] = [];
-
   async getWishlist(userId: string) {
     const bookIds = this.wishlists.filter((w) => w.user_id === userId).map((w) => w.book_id);
     const matchedBooks = this.books.filter((b) => bookIds.includes(b.id) && b.status === BookStatus.ACTIVE);
@@ -1150,6 +1350,378 @@ export class DatabaseService implements OnModuleInit {
 
   async getReports() {
     return this.reports;
+  }
+
+  // --- Phase 3: Featured Ads (Section 10.1) ---
+  getAdPackages(): AdPackage[] {
+    return AD_PACKAGES;
+  }
+
+  async getAdPackage(packageId: FeaturedPackage): Promise<AdPackage | null> {
+    return AD_PACKAGES.find((p) => p.id === packageId) || null;
+  }
+
+  async createFeaturedAd(userId: string, bookId: string, packageType: FeaturedPackage, paymentId?: string) {
+    const book = this.books.find((b) => b.id === bookId);
+    if (!book) throw new NotFoundException('বইটি পাওয়া যায়নি');
+    if (book.seller_id !== userId) throw new BadRequestException('শুধুমাত্র বইটির বিক্রেতা ফিচার করতে পারবেন');
+
+    const pkg = AD_PACKAGES.find((p) => p.id === packageType);
+    if (!pkg) throw new BadRequestException('অবৈধ প্যাকেজ নির্বাচন');
+
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + pkg.duration_days * 24 * 3600 * 1000);
+
+    const ad = {
+      id: `ad-${uuidv4()}`,
+      book_id: bookId,
+      shop_id: book.shop_id || null,
+      package_type: packageType,
+      fee_paid: pkg.price,
+      starts_at: now.toISOString(),
+      expires_at: expiresAt.toISOString(),
+      status: FeaturedStatus.ACTIVE,
+      payment_id: paymentId || null,
+      created_at: now.toISOString(),
+      updated_at: now.toISOString(),
+    };
+
+    this.featuredAds.push(ad);
+    book.is_featured = true;
+    return ad;
+  }
+
+  async checkExpiredAds() {
+    const now = new Date();
+    let expiredCount = 0;
+    for (const ad of this.featuredAds) {
+      if (ad.status === FeaturedStatus.ACTIVE && new Date(ad.expires_at) <= now) {
+        ad.status = FeaturedStatus.EXPIRED;
+        ad.updated_at = now.toISOString();
+        expiredCount++;
+
+        // If book has no other active ads, set is_featured = false
+        if (ad.book_id) {
+          const hasOtherActive = this.featuredAds.some(
+            (other) => other.book_id === ad.book_id && other.status === FeaturedStatus.ACTIVE && new Date(other.expires_at) > now,
+          );
+          if (!hasOtherActive) {
+            const book = this.books.find((b) => b.id === ad.book_id);
+            if (book) book.is_featured = false;
+          }
+        }
+      }
+    }
+    return { expiredCount };
+  }
+
+  async getActiveFeaturedAds(bookId?: string) {
+    const now = new Date();
+    return this.featuredAds.filter(
+      (ad) =>
+        ad.status === FeaturedStatus.ACTIVE &&
+        new Date(ad.expires_at) > now &&
+        (!bookId || ad.book_id === bookId),
+    );
+  }
+
+  // --- Phase 3: Payments (Section 11) ---
+  async createPaymentRecord(data: {
+    order_id?: string;
+    book_id?: string;
+    ad_package?: FeaturedPackage;
+    amount: number;
+    provider: string;
+    provider_transaction_id: string;
+    status: string;
+    raw_payload?: any;
+  }) {
+    const payment = {
+      id: `pay-${uuidv4()}`,
+      order_id: data.order_id || null,
+      book_id: data.book_id || null,
+      ad_package: data.ad_package || null,
+      provider: data.provider,
+      provider_transaction_id: data.provider_transaction_id,
+      amount: data.amount,
+      status: data.status,
+      raw_payload: data.raw_payload || null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    this.payments.push(payment);
+    return payment;
+  }
+
+  async getPaymentByTransactionId(tranId: string) {
+    return this.payments.find((p) => p.provider_transaction_id === tranId) || null;
+  }
+
+  async getPaymentById(id: string) {
+    return this.payments.find((p) => p.id === id) || null;
+  }
+
+  async updatePaymentStatus(paymentId: string, status: string, rawPayload?: any) {
+    const payment = this.payments.find((p) => p.id === paymentId);
+    if (!payment) return null;
+
+    // Idempotent: if already paid, return early with current state
+    if (payment.status === 'paid' && status === 'paid') {
+      return payment;
+    }
+
+    payment.status = status;
+    if (rawPayload) payment.raw_payload = rawPayload;
+    payment.updated_at = new Date().toISOString();
+
+    if (status === 'paid') {
+      // If for an order, update order status to confirmed and payment_status to paid
+      if (payment.order_id) {
+        const order = this.orders.find((o) => o.id === payment.order_id);
+        if (order) {
+          order.payment_status = PaymentStatus.PAID;
+          if (order.order_status === OrderStatus.PENDING) {
+            order.order_status = OrderStatus.CONFIRMED;
+          }
+        }
+      }
+
+      // If for a book featured ad, activate the ad
+      if (payment.book_id && payment.ad_package) {
+        const book = this.books.find((b) => b.id === payment.book_id);
+        if (book) {
+          const pkg = AD_PACKAGES.find((p) => p.id === payment.ad_package);
+          const now = new Date();
+          const expiresAt = new Date(now.getTime() + (pkg ? pkg.duration_days : 5) * 24 * 3600 * 1000);
+          this.featuredAds.push({
+            id: `ad-${uuidv4()}`,
+            book_id: book.id,
+            shop_id: book.shop_id || null,
+            package_type: payment.ad_package,
+            fee_paid: payment.amount,
+            starts_at: now.toISOString(),
+            expires_at: expiresAt.toISOString(),
+            status: FeaturedStatus.ACTIVE,
+            payment_id: payment.id,
+            created_at: now.toISOString(),
+            updated_at: now.toISOString(),
+          });
+          book.is_featured = true;
+        }
+      }
+    }
+
+    return payment;
+  }
+
+  // --- Phase 3: Seller Wallet & 48h Dispute Balance Release (Section 10.2) ---
+  async getOrCreateWallet(userId: string) {
+    let wallet = this.sellerWallets.find((w) => w.user_id === userId);
+    if (!wallet) {
+      wallet = {
+        id: `wallet-${uuidv4()}`,
+        user_id: userId,
+        shop_id: null,
+        available_balance: 0,
+        pending_balance: 0,
+        updated_at: new Date().toISOString(),
+      };
+      this.sellerWallets.push(wallet);
+    }
+    return wallet;
+  }
+
+  async getWalletSummary(userId: string) {
+    const wallet = await this.getOrCreateWallet(userId);
+    const transactions = this.walletTransactions
+      .filter((t) => t.wallet_id === wallet.id)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    const payoutRequests = this.payoutRequests
+      .filter((p) => p.wallet_id === wallet.id)
+      .sort((a, b) => new Date(b.requested_at).getTime() - new Date(a.requested_at).getTime());
+
+    const totalWithdrawn = payoutRequests
+      .filter((p) => p.status === PayoutStatus.PAID)
+      .reduce((sum, p) => sum + p.amount, 0);
+
+    return {
+      user_id: userId,
+      available_balance: wallet.available_balance,
+      pending_balance: wallet.pending_balance,
+      total_withdrawn: totalWithdrawn,
+      currency: 'BDT',
+      transactions,
+      payout_requests: payoutRequests,
+    };
+  }
+
+  async releaseExpiredDisputes() {
+    const now = new Date();
+    let releasedCount = 0;
+    let releasedAmount = 0;
+
+    for (const order of this.orders) {
+      if (
+        order.order_status === OrderStatus.DELIVERED &&
+        order.dispute_window_expires_at &&
+        new Date(order.dispute_window_expires_at) <= now &&
+        !order.escrow_released
+      ) {
+        // Check if there is an active dispute
+        const hasOpenDispute = this.disputes.some(
+          (d) => d.order_id === order.id && d.status === 'open',
+        );
+        if (!hasOpenDispute) {
+          const earning = order.price - (order.platform_fee || 0);
+          const wallet = await this.getOrCreateWallet(order.seller_id);
+
+          wallet.pending_balance = Math.max(0, wallet.pending_balance - earning);
+          wallet.available_balance += earning;
+          wallet.updated_at = now.toISOString();
+
+          order.escrow_released = true;
+          releasedCount++;
+          releasedAmount += earning;
+
+          this.walletTransactions.push({
+            id: `trx-${uuidv4()}`,
+            wallet_id: wallet.id,
+            amount: earning,
+            type: 'credit_available',
+            reference_id: order.id,
+            description: `অর্ডার #${order.id.slice(0, 8)} এর ৪৮ ঘণ্টা বায়ার প্রোটেকশন উত্তীর্ণ - অর্থ ব্যালেন্সে যুক্ত হয়েছে`,
+            created_at: now.toISOString(),
+          });
+        }
+      }
+    }
+
+    return { releasedCount, releasedAmount };
+  }
+
+  async requestPayout(userId: string, data: PayoutRequestDto) {
+    if (data.amount < 100) {
+      throw new BadRequestException('সর্বনিম্ন উত্তোলন পরিমাণ ১০০ টাকা');
+    }
+
+    const wallet = await this.getOrCreateWallet(userId);
+    if (wallet.available_balance < data.amount) {
+      throw new BadRequestException('অপর্যাপ্ত উত্তোলনযোগ্য ব্যালেন্স');
+    }
+
+    wallet.available_balance -= data.amount;
+    wallet.updated_at = new Date().toISOString();
+
+    const payoutReq = {
+      id: `payout-${uuidv4()}`,
+      wallet_id: wallet.id,
+      amount: data.amount,
+      method: data.method,
+      account_number: data.account_number,
+      bank_name: data.bank_name || null,
+      branch_name: data.branch_name || null,
+      status: PayoutStatus.PENDING,
+      requested_at: new Date().toISOString(),
+      processed_at: null,
+    };
+    this.payoutRequests.unshift(payoutReq);
+
+    this.walletTransactions.push({
+      id: `trx-${uuidv4()}`,
+      wallet_id: wallet.id,
+      amount: data.amount,
+      type: 'withdrawal',
+      reference_id: payoutReq.id,
+      description: `উত্তোলন অনুরোধ (${data.method.toUpperCase()} - ${data.account_number})`,
+      created_at: new Date().toISOString(),
+    });
+
+    return payoutReq;
+  }
+
+  // --- Phase 3: Reviews & Ratings (Section 5 & 8) ---
+  async createReview(buyerId: string, orderId: string, rating: number, comment?: string) {
+    const order = this.orders.find((o) => o.id === orderId);
+    if (!order) throw new NotFoundException('অর্ডারটি পাওয়া যায়নি');
+    if (order.buyer_id !== buyerId) throw new BadRequestException('শুধুমাত্র ক্রেতা রিভিউ প্রদান করতে পারবেন');
+    if (order.order_status !== OrderStatus.DELIVERED) {
+      throw new BadRequestException('শুধুমাত্র ডেলিভারিকৃত অর্ডারে রিভিউ দেওয়া সম্ভব');
+    }
+
+    const alreadyReviewed = this.reviews.some((r) => r.order_id === orderId);
+    if (alreadyReviewed) {
+      throw new BadRequestException('এই অর্ডারে ইতিমধ্যে রিভিউ প্রদান করা হয়েছে');
+    }
+
+    if (rating < 1 || rating > 5) {
+      throw new BadRequestException('রেটিং ১ থেকে ৫ এর মধ্যে হতে হবে');
+    }
+
+    const review = {
+      id: `rev-${uuidv4()}`,
+      order_id: orderId,
+      reviewer_id: buyerId,
+      reviewee_id: order.seller_id,
+      rating: Math.round(rating),
+      comment: comment || null,
+      created_at: new Date().toISOString(),
+    };
+
+    this.reviews.unshift(review);
+
+    // Recalculate seller ratings
+    const sellerReviews = this.reviews.filter((r) => r.reviewee_id === order.seller_id);
+    const total = sellerReviews.length;
+    const sum = sellerReviews.reduce((acc, r) => acc + r.rating, 0);
+    const avg = Number((sum / total).toFixed(1));
+
+    const seller = this.users.find((u) => u.id === order.seller_id);
+    if (seller) {
+      seller.rating_avg = avg;
+      seller.rating_count = total;
+    }
+
+    return this.hydrateReview(review);
+  }
+
+  async getReviewsForUser(userId: string) {
+    const userReviews = this.reviews.filter((r) => r.reviewee_id === userId);
+    return userReviews.map((r) => this.hydrateReview(r));
+  }
+
+  async getReviewForOrder(orderId: string) {
+    const rev = this.reviews.find((r) => r.order_id === orderId);
+    return rev ? this.hydrateReview(rev) : null;
+  }
+
+  private hydrateReview(review: any) {
+    const reviewer = this.users.find((u) => u.id === review.reviewer_id);
+    const order = this.orders.find((o) => o.id === review.order_id);
+    const book = order ? this.books.find((b) => b.id === order.book_id) : null;
+
+    return {
+      ...review,
+      reviewer: reviewer
+        ? {
+            id: reviewer.id,
+            name: reviewer.name,
+            avatar_url: reviewer.avatar_url,
+          }
+        : null,
+      order: order
+        ? {
+            id: order.id,
+            book: book
+              ? {
+                  id: book.id,
+                  title_en: book.title_en,
+                  title_bn: book.title_bn,
+                }
+              : null,
+          }
+        : null,
+    };
   }
 }
 

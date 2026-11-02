@@ -7,6 +7,7 @@ import { useI18n } from '../../../lib/i18n';
 import { fetchApi } from '../../../lib/api';
 import { BookDetail } from '@boi-hat/shared-types';
 import BookCard from '../../../components/BookCard';
+import BoostModal from '../../../components/BoostModal';
 import {
   BookOpen,
   PlusCircle,
@@ -15,6 +16,8 @@ import {
   Trash2,
   Eye,
   CheckCircle2,
+  Wallet,
+  Sparkles,
 } from 'lucide-react';
 
 export default function SellerDashboardPage() {
@@ -23,6 +26,7 @@ export default function SellerDashboardPage() {
 
   const [myBooks, setMyBooks] = useState<BookDetail[]>([]);
   const [loading, setLoading] = useState(true);
+  const [boostingBook, setBoostingBook] = useState<{ id: string; title: string } | null>(null);
 
   const loadMyBooks = async () => {
     if (!user) return;
@@ -68,7 +72,7 @@ export default function SellerDashboardPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8 animate-fadeIn">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -77,17 +81,27 @@ export default function SellerDashboardPage() {
             <span>আমার বিজ্ঞাপিত বইসমূহ (My Listings)</span>
           </h1>
           <p className="text-xs sm:text-sm text-gray-500 mt-1">
-            আপনার সকল সক্রিয় বিজ্ঞাপন পরিচালনা ও নতুন বইয়ের তালিকা যুক্ত করুন
+            আপনার সকল সক্রিয় বিজ্ঞাপন পরিচালনা, বুস্টিং ও নতুন বই বিক্রির তালিকা যুক্ত করুন
           </p>
         </div>
 
-        <Link
-          href="/post-ad"
-          className="px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-2xl shadow-md transition flex items-center gap-2 text-xs sm:text-sm shrink-0"
-        >
-          <PlusCircle className="w-4 h-4" />
-          <span>নতুন বই বিক্রি করুন</span>
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/wallet"
+            className="px-5 py-3 bg-white hover:bg-gray-50 border border-gray-200 text-gray-800 font-bold rounded-2xl shadow-sm transition flex items-center gap-2 text-xs sm:text-sm shrink-0 active:scale-95"
+          >
+            <Wallet className="w-4 h-4 text-emerald-600" />
+            <span>আমার ওয়ালেট</span>
+          </Link>
+
+          <Link
+            href="/post-ad"
+            className="px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-2xl shadow-md transition flex items-center gap-2 text-xs sm:text-sm shrink-0 active:scale-95"
+          >
+            <PlusCircle className="w-4 h-4" />
+            <span>নতুন বই বিক্রি করুন</span>
+          </Link>
+        </div>
       </div>
 
       {/* Grid of Listings */}
@@ -114,21 +128,49 @@ export default function SellerDashboardPage() {
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
           {myBooks.map((book) => (
-            <div key={book.id} className="relative group">
+            <div key={book.id} className="relative group flex flex-col">
               <BookCard book={book} />
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleDeleteListing(book.id);
-                }}
-                className="absolute top-2 right-2 p-2 bg-red-600 text-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition z-20"
-                title="বিজ্ঞাপন মুছুন"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+              
+              <div className="mt-2 flex items-center gap-2">
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setBoostingBook({ id: book.id, title: book.title_bn || book.title_en });
+                  }}
+                  className="flex-1 py-2 px-3 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-white font-bold text-xs rounded-xl shadow-sm transition flex items-center justify-center gap-1.5 active:scale-95"
+                >
+                  <Sparkles className="w-3.5 h-3.5 fill-white" />
+                  <span>{book.is_featured ? 'রিনিউ বুস্ট' : 'বুস্ট করুন'}</span>
+                </button>
+
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleDeleteListing(book.id);
+                  }}
+                  className="p-2 border border-gray-200 hover:border-red-300 text-gray-400 hover:text-red-600 rounded-xl transition"
+                  title="বিজ্ঞাপন মুছুন"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           ))}
         </div>
+      )}
+
+      {/* Boost Modal */}
+      {boostingBook && (
+        <BoostModal
+          bookId={boostingBook.id}
+          bookTitle={boostingBook.title}
+          isOpen={true}
+          onClose={() => setBoostingBook(null)}
+          onSuccess={() => {
+            loadMyBooks();
+            setBoostingBook(null);
+          }}
+        />
       )}
     </div>
   );

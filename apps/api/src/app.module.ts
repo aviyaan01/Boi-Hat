@@ -10,6 +10,10 @@ import { OrdersModule } from './modules/orders/orders.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { WishlistModule } from './modules/wishlist/wishlist.module';
 import { RecommendationsModule } from './modules/recommendations/recommendations.module';
+import { PaymentsModule } from './modules/payments/payments.module';
+import { AdsModule } from './modules/ads/ads.module';
+import { WalletModule } from './modules/wallet/wallet.module';
+import { ReviewsModule } from './modules/reviews/reviews.module';
 
 @Module({
   imports: [
@@ -24,7 +28,12 @@ import { RecommendationsModule } from './modules/recommendations/recommendations
     AdminModule,
     WishlistModule,
     RecommendationsModule,
+    PaymentsModule,
+    AdsModule,
+    WalletModule,
+    ReviewsModule,
   ],
 })
 export class AppModule {}
+
 

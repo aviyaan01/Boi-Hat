@@ -323,3 +323,133 @@ export interface ConversationThread {
   last_message?: MessageItem;
   messages?: MessageItem[];
 }
+
+// --- Phase 3 Types ---
+
+// Featured Ads Types (Section 10.1)
+export interface AdPackage {
+  id: FeaturedPackage;
+  name_en: string;
+  name_bn: string;
+  duration_days: number;
+  price: number; // BDT
+  badge_label_en: string;
+  badge_label_bn: string;
+  description_en: string;
+  description_bn: string;
+}
+
+export interface FeaturedAd {
+  id: string;
+  book_id: string | null;
+  shop_id: string | null;
+  package_type: FeaturedPackage;
+  fee_paid: number;
+  starts_at: string;
+  expires_at: string;
+  status: FeaturedStatus;
+  payment_id: string | null;
+  created_at: string;
+  updated_at?: string;
+  book?: BookDetail;
+}
+
+// Payment Types (Section 11)
+export interface PaymentRecord {
+  id: string;
+  order_id?: string | null;
+  provider: string;
+  provider_transaction_id: string | null;
+  amount: number;
+  status: string;
+  raw_payload?: any;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PaymentInitDto {
+  amount: number;
+  order_id?: string;
+  book_id?: string;
+  ad_package?: FeaturedPackage;
+  redirect_url?: string;
+}
+
+export interface PaymentInitResponse {
+  payment_id: string;
+  transaction_id: string;
+  gateway_url: string;
+  amount: number;
+}
+
+// Seller Wallet & Escrow Types (Section 10.2)
+export interface WalletSummary {
+  user_id: string;
+  available_balance: number;
+  pending_balance: number;
+  total_withdrawn: number;
+  currency: string;
+  transactions: WalletTransaction[];
+  payout_requests: PayoutRequest[];
+}
+
+export interface WalletTransaction {
+  id: string;
+  wallet_id?: string;
+  amount: number;
+  type: 'credit_pending' | 'credit_available' | 'withdrawal' | 'refund' | 'ad_fee';
+  reference_id: string;
+  description: string;
+  created_at: string;
+}
+
+export interface PayoutRequest {
+  id: string;
+  wallet_id: string;
+  amount: number;
+  method: PayoutMethod;
+  account_number: string;
+  bank_name?: string;
+  branch_name?: string;
+  status: PayoutStatus;
+  requested_at: string;
+  processed_at?: string | null;
+}
+
+export interface PayoutRequestDto {
+  amount: number;
+  method: PayoutMethod;
+  account_number: string;
+  bank_name?: string;
+  branch_name?: string;
+}
+
+// Order Reviews & Seller Ratings (Section 5 & 8)
+export interface OrderReview {
+  id: string;
+  order_id: string;
+  reviewer_id: string;
+  reviewee_id: string;
+  rating: number; // 1 to 5
+  comment: string | null;
+  created_at: string;
+  reviewer?: {
+    id: string;
+    name: string | null;
+    avatar_url: string | null;
+  };
+  order?: {
+    id: string;
+    book?: {
+      id: string;
+      title_en: string;
+      title_bn: string;
+    };
+  };
+}
+
+export interface CreateReviewDto {
+  rating: number;
+  comment?: string;
+}
+

@@ -21,6 +21,7 @@ import {
   Heart,
   Bell,
   Sparkles,
+  Wallet,
 } from 'lucide-react';
 import AuthModal from './AuthModal';
 import OnboardingModal from './OnboardingModal';
@@ -229,6 +230,15 @@ export default function Navbar() {
                       >
                         <BookOpen className="w-4 h-4 text-emerald-600" />
                         <span>{t('app.my_listings')}</span>
+                      </Link>
+
+                      <Link
+                        href="/wallet"
+                        onClick={() => setUserDropdownOpen(false)}
+                        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                      >
+                        <Wallet className="w-4 h-4 text-emerald-600" />
+                        <span>আমার ওয়ালেট (Wallet)</span>
                       </Link>
 
                       <button
