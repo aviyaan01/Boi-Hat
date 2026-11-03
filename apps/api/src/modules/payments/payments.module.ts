@@ -9,3 +9,4 @@ import { SslCommerzProvider } from './sslcommerz.provider';
   exports: [PaymentsService, SslCommerzProvider],
 })
 export class PaymentsModule {}
+

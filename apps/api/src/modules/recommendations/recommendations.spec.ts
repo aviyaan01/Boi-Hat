@@ -89,3 +89,4 @@ describe('Phase 2: Recommendations, Wishlists & Behavior Tracking', () => {
     expect(authorPref?.weight).toBeGreaterThanOrEqual(10);
   });
 });
+

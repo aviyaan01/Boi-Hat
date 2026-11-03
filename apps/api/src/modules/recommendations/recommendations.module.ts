@@ -5,3 +5,4 @@ import { RecommendationsController } from './recommendations.controller';
   controllers: [RecommendationsController],
 })
 export class RecommendationsModule {}
+

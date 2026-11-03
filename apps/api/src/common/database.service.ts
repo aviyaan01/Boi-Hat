@@ -16,6 +16,10 @@ import {
   PayoutStatus,
   AdPackage,
   PayoutRequestDto,
+  CourierProvider,
+  CourierParcelStatus,
+  CreateParcelDto,
+  DeliveryFeeEstimate,
 } from '@boi-hat/shared-types';
 import { CATEGORIES_SEED, AUTHORS_SEED, PUBLISHERS_SEED, SHOPS_SEED } from '../../prisma/seed/seedData';
 import { generate160Books } from '../../prisma/seed/seedBooks';
@@ -88,6 +92,7 @@ export class DatabaseService implements OnModuleInit {
   private payoutRequests: any[] = [];
   private walletTransactions: any[] = [];
   private reviews: any[] = [];
+  private courierParcels: any[] = [];
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -453,6 +458,43 @@ export class DatabaseService implements OnModuleInit {
       payment_id: 'pay-seed-1',
       created_at: new Date(Date.now() - 1 * 24 * 3600 * 1000).toISOString(),
       updated_at: new Date().toISOString(),
+    });
+
+    // 9. Seed Phase 4 Courier Parcel for demo order
+    this.courierParcels.push({
+      id: 'parcel-demo-1',
+      order_id: demoOrder.id,
+      courier_provider: CourierProvider.PATHAO,
+      consignment_id: 'CN-PT-99281',
+      tracking_id: 'PT-DHK-99281',
+      status: CourierParcelStatus.PICKED_UP,
+      delivery_fee: 60,
+      amount_to_collect: demoOrder.total_amount,
+      recipient_name: buyerUser.name,
+      recipient_phone: buyerUser.phone,
+      recipient_address: demoOrder.delivery_address,
+      recipient_city: 'Dhaka',
+      recipient_area: 'Uttara',
+      timeline: [
+        {
+          status: CourierParcelStatus.PENDING_PICKUP,
+          title_bn: 'পার্সেল বুকিং গ্রহণ করা হয়েছে',
+          title_en: 'Parcel Booking Created',
+          description: 'বিক্রেতা পাঠাও কুরিয়ারে পিকআপ শিডিউল করেছেন।',
+          timestamp: new Date(Date.now() - 3600000).toISOString(),
+          location: 'Shahbagh Hub',
+        },
+        {
+          status: CourierParcelStatus.PICKED_UP,
+          title_bn: 'রাইডার পার্সেল সংগ্রহ করেছেন',
+          title_en: 'Picked Up by Rider',
+          description: 'বিক্রেতার কাছ থেকে পার্সেল সংগ্রহ করে সর্টিং হাবে পাঠানো হয়েছে।',
+          timestamp: new Date(Date.now() - 1800000).toISOString(),
+          location: 'Dhaka Central Hub',
+        },
+      ],
+      created_at: new Date(Date.now() - 3600000).toISOString(),
+      updated_at: new Date(Date.now() - 1800000).toISOString(),
     });
   }
 
@@ -1046,6 +1088,7 @@ export class DatabaseService implements OnModuleInit {
     const buyer = this.users.find((u) => u.id === order.buyer_id);
     const seller = this.users.find((u) => u.id === order.seller_id);
     const review = this.reviews.find((r) => r.order_id === order.id) || null;
+    const parcel = this.courierParcels.find((p) => p.order_id === order.id || (order.courier_tracking_id && p.tracking_id === order.courier_tracking_id)) || null;
 
     return {
       ...order,
@@ -1060,6 +1103,7 @@ export class DatabaseService implements OnModuleInit {
             created_at: review.created_at,
           }
         : null,
+      courier_parcel: parcel,
     };
   }
 
@@ -1722,6 +1766,196 @@ export class DatabaseService implements OnModuleInit {
           }
         : null,
     };
+  }
+
+  // --- Phase 4: Courier Integration (Section 12) ---
+  calculateDeliveryFee(
+    city: string = 'Dhaka',
+    weightBucket: WeightBucket = WeightBucket.UNDER_300G,
+    provider: CourierProvider = CourierProvider.PATHAO,
+  ): DeliveryFeeEstimate {
+    const isDhaka = city.toLowerCase().includes('dhaka') || city.includes('ঢাকা');
+    let fee = isDhaka ? 60 : 120;
+    if (weightBucket === WeightBucket.BETWEEN_300G_1KG) {
+      fee += isDhaka ? 10 : 20;
+    } else if (weightBucket === WeightBucket.OVER_1KG) {
+      fee += isDhaka ? 30 : 40;
+    }
+
+    return {
+      provider,
+      inside_dhaka: isDhaka,
+      delivery_fee: fee,
+      estimated_delivery_hours: isDhaka ? 24 : 72,
+    };
+  }
+
+  async createCourierParcel(data: CreateParcelDto) {
+    const order = this.orders.find((o) => o.id === data.order_id);
+    if (!order) throw new NotFoundException('অর্ডার পাওয়া যায়নি');
+
+    const provider = data.courier_provider || CourierProvider.PATHAO;
+    const prefix =
+      provider === CourierProvider.PATHAO
+        ? 'PT-DHK'
+        : provider === CourierProvider.STEADFAST
+        ? 'SF'
+        : 'REDX';
+    const trackingId = `${prefix}-${Date.now().toString().slice(-6)}${Math.floor(
+      100 + Math.random() * 900,
+    )}`;
+    const consignmentId = `CN-${provider.toUpperCase()}-${uuidv4().slice(0, 8)}`;
+
+    const estimate = this.calculateDeliveryFee(data.recipient_city, data.item_weight, provider);
+
+    const now = new Date().toISOString();
+    const parcel: any = {
+      id: `parcel-${uuidv4()}`,
+      order_id: data.order_id,
+      courier_provider: provider,
+      consignment_id: consignmentId,
+      tracking_id: trackingId,
+      status: CourierParcelStatus.PENDING_PICKUP,
+      delivery_fee: estimate.delivery_fee,
+      amount_to_collect:
+        data.amount_to_collect !== undefined
+          ? data.amount_to_collect
+          : order.payment_status === PaymentStatus.PAID
+          ? 0
+          : order.total_amount,
+      recipient_name: data.recipient_name,
+      recipient_phone: data.recipient_phone,
+      recipient_address: data.recipient_address,
+      recipient_city: data.recipient_city || 'Dhaka',
+      recipient_area: data.recipient_area || null,
+      timeline: [
+        {
+          status: CourierParcelStatus.PENDING_PICKUP,
+          title_bn: 'পার্সেল বুকিং গ্রহণ করা হয়েছে',
+          title_en: 'Parcel Booking Created',
+          description: `অর্ডার #${order.id.slice(0, 8)} এর জন্য ${provider.toUpperCase()} কুরিয়ারে বুকিং তৈরি হয়েছে।`,
+          timestamp: now,
+          location: 'Dhaka Hub',
+        },
+      ],
+      created_at: now,
+      updated_at: now,
+    };
+
+    this.courierParcels.unshift(parcel);
+
+    // Update order with courier tracking
+    order.courier_provider = provider;
+    order.courier_tracking_id = trackingId;
+    if (order.order_status === OrderStatus.PENDING) {
+      order.order_status = OrderStatus.CONFIRMED;
+    }
+    order.updated_at = now;
+
+    return parcel;
+  }
+
+  async getCourierParcelByTrackingId(trackingId: string) {
+    return this.courierParcels.find((p) => p.tracking_id === trackingId) || null;
+  }
+
+  async getCourierParcelByOrderId(orderId: string) {
+    return this.courierParcels.find((p) => p.order_id === orderId) || null;
+  }
+
+  async updateCourierParcelStatus(
+    trackingId: string,
+    status: CourierParcelStatus,
+    location?: string,
+    description?: string,
+  ) {
+    const parcel = this.courierParcels.find((p) => p.tracking_id === trackingId);
+    if (!parcel) return null;
+
+    parcel.status = status;
+    const now = new Date().toISOString();
+    parcel.updated_at = now;
+
+    const statusTitleMap: Record<
+      CourierParcelStatus,
+      { bn: string; en: string; defaultDesc: string }
+    > = {
+      [CourierParcelStatus.PENDING_PICKUP]: {
+        bn: 'পিকআপের অপেক্ষায়',
+        en: 'Pending Pickup',
+        defaultDesc: 'রাইডার বিক্রেতার ঠিকানা থেকে পার্সেল সংগ্রহের পথে রয়েছে।',
+      },
+      [CourierParcelStatus.PICKED_UP]: {
+        bn: 'রাইডার পার্সেল সংগ্রহ করেছে',
+        en: 'Picked Up by Rider',
+        defaultDesc: 'পার্সেল সফলভাবে সংগ্রহ করা হয়েছে এবং হাবে পাঠানো হচ্ছে।',
+      },
+      [CourierParcelStatus.IN_TRANSIT]: {
+        bn: 'পার্সেল পরিবহনে রয়েছে',
+        en: 'In Transit',
+        defaultDesc: 'পার্সেলটি আঞ্চলিক সর্টিং হাবের দিকে স্থানান্তরিত হচ্ছে।',
+      },
+      [CourierParcelStatus.OUT_FOR_DELIVERY]: {
+        bn: 'ডেলিভারির জন্য বের হয়েছে',
+        en: 'Out for Delivery',
+        defaultDesc: 'ডেলিভারি রাইডার ক্রেতার ঠিকানায় রওনা দিয়েছেন।',
+      },
+      [CourierParcelStatus.DELIVERED]: {
+        bn: 'পার্সেল ডেলিভারি সম্পন্ন',
+        en: 'Delivered',
+        defaultDesc:
+          'ক্রেতা সফলভাবে বইটি গ্রহণ করেছেন। বায়ার প্রোটেকশন ৪৮ ঘণ্টা গণনা শুরু হয়েছে।',
+      },
+      [CourierParcelStatus.RETURNED]: {
+        bn: 'পার্সেল রিটার্ন করা হয়েছে',
+        en: 'Returned',
+        defaultDesc: 'অনিবার্য কারণে পার্সেলটি বিক্রেতার কাছে ফেরত পাঠানো হচ্ছে।',
+      },
+      [CourierParcelStatus.CANCELLED]: {
+        bn: 'বুকিং বাতিল করা হয়েছে',
+        en: 'Cancelled',
+        defaultDesc: 'কুরিয়ার বুকিং বাতিল করা হয়েছে।',
+      },
+    };
+
+    const info = statusTitleMap[status] || {
+      bn: status,
+      en: status,
+      defaultDesc: 'স্ট্যাটাস আপডেট করা হয়েছে',
+    };
+
+    parcel.timeline.push({
+      status,
+      title_bn: info.bn,
+      title_en: info.en,
+      description: description || info.defaultDesc,
+      timestamp: now,
+      location: location || parcel.recipient_city,
+    });
+
+    // Auto-progress order lifecycle based on courier events
+    const order = this.orders.find((o) => o.id === parcel.order_id);
+    if (order) {
+      if (
+        status === CourierParcelStatus.PICKED_UP ||
+        status === CourierParcelStatus.IN_TRANSIT ||
+        status === CourierParcelStatus.OUT_FOR_DELIVERY
+      ) {
+        if (
+          order.order_status === OrderStatus.PENDING ||
+          order.order_status === OrderStatus.CONFIRMED
+        ) {
+          order.order_status = OrderStatus.SHIPPED;
+          order.courier_tracking_id = trackingId;
+          order.updated_at = now;
+        }
+      } else if (status === CourierParcelStatus.DELIVERED) {
+        // Automatically mark order DELIVERED, start 48-hour dispute window, credit escrow
+        await this.updateOrderStatus(order.id, OrderStatus.DELIVERED, trackingId);
+      }
+    }
+
+    return parcel;
   }
 }
 

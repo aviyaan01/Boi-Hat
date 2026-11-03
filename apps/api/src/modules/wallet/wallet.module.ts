@@ -5,3 +5,4 @@ import { WalletController } from './wallet.controller';
   controllers: [WalletController],
 })
 export class WalletModule {}
+

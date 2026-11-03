@@ -56,3 +56,4 @@ export class WishlistController {
     return this.db.deleteSavedSearch(req.user.id, id);
   }
 }
+

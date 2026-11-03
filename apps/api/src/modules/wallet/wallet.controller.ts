@@ -34,3 +34,4 @@ export class WalletController {
     return this.db.requestPayout(req.user.id, body);
   }
 }
+

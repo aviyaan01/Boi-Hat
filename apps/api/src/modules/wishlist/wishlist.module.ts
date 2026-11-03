@@ -5,3 +5,4 @@ import { WishlistController } from './wishlist.controller';
   controllers: [WishlistController],
 })
 export class WishlistModule {}
+

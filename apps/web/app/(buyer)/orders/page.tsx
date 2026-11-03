@@ -7,6 +7,8 @@ import { useAuth } from '../../../lib/auth';
 import { useI18n } from '../../../lib/i18n';
 import { fetchApi } from '../../../lib/api';
 import { OrderDetail, OrderStatus, PaymentStatus } from '@boi-hat/shared-types';
+import CourierBookingModal from '../../../components/CourierBookingModal';
+import CourierTrackingModal from '../../../components/CourierTrackingModal';
 import {
   Package,
   Clock,
@@ -27,6 +29,8 @@ export default function OrdersPage() {
   const { locale, t, formatPrice } = useI18n();
   const [orders, setOrders] = useState<OrderDetail[]>([]);
   const [loading, setLoading] = useState(true);
+  const [bookingModalOrder, setBookingModalOrder] = useState<OrderDetail | null>(null);
+  const [trackingModalId, setTrackingModalId] = useState<string | null>(null);
   const [trackingModalOrder, setTrackingModalOrder] = useState<OrderDetail | null>(null);
   const [trackingIdInput, setTrackingIdInput] = useState('');
   const [disputeModalOrder, setDisputeModalOrder] = useState<OrderDetail | null>(null);
@@ -245,10 +249,21 @@ export default function OrdersPage() {
                         ডেলিভারি ঠিকানা: {order.delivery_address}
                       </p>
                       {order.courier_tracking_id && (
-                        <p className="text-xs text-emerald-700 font-mono mt-1 font-semibold flex items-center gap-1">
-                          <Truck className="w-3.5 h-3.5" />
-                          ট্র্যাকিং আইডি: {order.courier_tracking_id} ({order.courier_provider})
-                        </p>
+                        <div className="mt-2">
+                          <button
+                            type="button"
+                            onClick={() => setTrackingModalId(order.courier_tracking_id!)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-800 text-xs font-mono font-bold transition group active:scale-95 shadow-xs"
+                          >
+                            <Truck className="w-3.5 h-3.5 text-blue-600 group-hover:scale-110 transition" />
+                            <span>
+                              {order.courier_provider?.toUpperCase() || 'COURIER'}: {order.courier_tracking_id}
+                            </span>
+                            <span className="text-[10px] bg-blue-200/80 text-blue-900 px-1.5 py-0.5 rounded font-sans font-semibold">
+                              লাইভ ট্র্যাকিং ↗
+                            </span>
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -293,13 +308,22 @@ export default function OrdersPage() {
                         </button>
                       )}
                       {order.order_status === OrderStatus.CONFIRMED && (
-                        <button
-                          onClick={() => setTrackingModalOrder(order)}
-                          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-sm transition flex items-center gap-1"
-                        >
-                          <Truck className="w-3.5 h-3.5" />
-                          <span>কুরিয়ার ট্র্যাকিং দিন ও পাঠান (Ship)</span>
-                        </button>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <button
+                            onClick={() => setBookingModalOrder(order)}
+                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-sm transition flex items-center gap-1.5 active:scale-95"
+                          >
+                            <Truck className="w-3.5 h-3.5" />
+                            <span>কুরিয়ার বুক করুন (Pathao/Steadfast)</span>
+                          </button>
+                          <button
+                            onClick={() => setTrackingModalOrder(order)}
+                            className="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold transition"
+                            title="কুরিয়ার ট্র্যাকিং নম্বর ম্যানুয়ালি ইনপুট করুন"
+                          >
+                            ম্যানুয়াল ট্র্যাকিং
+                          </button>
+                        </div>
                       )}
                     </div>
                   )}
@@ -544,6 +568,30 @@ export default function OrdersPage() {
             </div>
           </form>
         </div>
+      )}
+
+      {/* Native Courier Booking Modal (Pathao, Steadfast, RedX) */}
+      {bookingModalOrder && (
+        <CourierBookingModal
+          isOpen={!!bookingModalOrder}
+          order={bookingModalOrder}
+          onClose={() => setBookingModalOrder(null)}
+          onBooked={() => {
+            loadOrders();
+          }}
+        />
+      )}
+
+      {/* Courier Live Tracking & Sandbox Simulation Modal */}
+      {trackingModalId && (
+        <CourierTrackingModal
+          isOpen={!!trackingModalId}
+          trackingId={trackingModalId}
+          onClose={() => setTrackingModalId(null)}
+          onStatusChange={() => {
+            loadOrders();
+          }}
+        />
       )}
     </div>
   );

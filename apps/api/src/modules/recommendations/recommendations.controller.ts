@@ -88,3 +88,4 @@ export class RecommendationsController {
     return this.db.markAllNotificationsRead(req.user.id);
   }
 }
+

@@ -88,3 +88,4 @@ describe('Ads & Boosting (Phase 3)', () => {
     expect(checkedAd.length).toBe(0);
   });
 });
+

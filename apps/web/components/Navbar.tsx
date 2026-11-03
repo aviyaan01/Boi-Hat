@@ -22,6 +22,7 @@ import {
   Bell,
   Sparkles,
   Wallet,
+  Truck,
 } from 'lucide-react';
 import AuthModal from './AuthModal';
 import OnboardingModal from './OnboardingModal';
@@ -241,6 +242,15 @@ export default function Navbar() {
                         <span>আমার ওয়ালেট (Wallet)</span>
                       </Link>
 
+                      <Link
+                        href="/courier-simulator"
+                        onClick={() => setUserDropdownOpen(false)}
+                        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                      >
+                        <Truck className="w-4 h-4 text-emerald-600" />
+                        <span>কুরিয়ার ট্র্যাকিং ও সিমুলেটর</span>
+                      </Link>
+
                       <button
                         onClick={() => {
                           setUserDropdownOpen(false);
@@ -355,6 +365,13 @@ export default function Navbar() {
                   className="block py-2 text-sm text-gray-800"
                 >
                   {t('app.my_orders')}
+                </Link>
+                <Link
+                  href="/courier-simulator"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block py-2 text-sm text-gray-800"
+                >
+                  কুরিয়ার ট্র্যাকিং ও সিমুলেটর
                 </Link>
                 <Link
                   href="/dashboard"

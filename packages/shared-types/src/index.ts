@@ -453,3 +453,70 @@ export interface CreateReviewDto {
   comment?: string;
 }
 
+// --- Phase 4: Courier Integration Types (Section 12) ---
+export enum CourierProvider {
+  PATHAO = 'pathao',
+  STEADFAST = 'steadfast',
+  REDX = 'redx',
+}
+
+export enum CourierParcelStatus {
+  PENDING_PICKUP = 'pending_pickup',
+  PICKED_UP = 'picked_up',
+  IN_TRANSIT = 'in_transit',
+  OUT_FOR_DELIVERY = 'out_for_delivery',
+  DELIVERED = 'delivered',
+  RETURNED = 'returned',
+  CANCELLED = 'cancelled',
+}
+
+export interface CourierTrackingEvent {
+  status: CourierParcelStatus;
+  title_bn: string;
+  title_en: string;
+  description: string;
+  timestamp: string;
+  location?: string;
+}
+
+export interface CourierParcel {
+  id: string;
+  order_id: string;
+  courier_provider: CourierProvider;
+  consignment_id: string;
+  tracking_id: string;
+  status: CourierParcelStatus;
+  delivery_fee: number;
+  amount_to_collect: number;
+  recipient_name: string;
+  recipient_phone: string;
+  recipient_address: string;
+  recipient_city: string;
+  recipient_area?: string | null;
+  timeline: CourierTrackingEvent[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateParcelDto {
+  order_id: string;
+  courier_provider?: CourierProvider;
+  delivery_type?: 'standard' | 'express';
+  recipient_name: string;
+  recipient_phone: string;
+  recipient_address: string;
+  recipient_city?: string;
+  recipient_area?: string;
+  amount_to_collect?: number;
+  item_weight?: WeightBucket;
+  special_instructions?: string;
+}
+
+export interface DeliveryFeeEstimate {
+  provider: CourierProvider;
+  inside_dhaka: boolean;
+  delivery_fee: number;
+  estimated_delivery_hours: number;
+}
+
+

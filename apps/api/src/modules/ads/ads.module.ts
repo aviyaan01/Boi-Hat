@@ -7,3 +7,4 @@ import { PaymentsModule } from '../payments/payments.module';
   controllers: [AdsController],
 })
 export class AdsModule {}
+
