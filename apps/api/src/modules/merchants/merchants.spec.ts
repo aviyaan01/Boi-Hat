@@ -94,3 +94,4 @@ describe('MerchantsService', () => {
     expect(typeof firstShop.total_listings).toBe('number');
   });
 });
+

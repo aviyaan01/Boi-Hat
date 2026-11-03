@@ -10,3 +10,4 @@ import { CommonModule } from '../../common/common.module';
   exports: [MerchantsService],
 })
 export class MerchantsModule {}
+
