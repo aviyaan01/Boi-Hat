@@ -1,12 +1,19 @@
 import { ApiResponse } from '@boi-hat/shared-types';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const getApiBaseUrl = () => {
+  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
+  if (typeof window !== 'undefined' && window.location.hostname && window.location.hostname !== 'localhost') {
+    return `http://${window.location.hostname}:4000`;
+  }
+  return 'http://localhost:4000';
+};
 
 export async function fetchApi<T = any>(
   endpoint: string,
   options: RequestInit = {},
 ): Promise<ApiResponse<T>> {
-  const url = `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+  const baseUrl = getApiBaseUrl();
+  const url = `${baseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',

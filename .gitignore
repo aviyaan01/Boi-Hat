@@ -28,6 +28,14 @@ data/
 *.sqlite3
 *.db
 
+# Android & Capacitor
+apps/web/android/build/
+apps/web/android/app/build/
+apps/web/android/.gradle/
+apps/web/android/local.properties
+*.apk
+.idea/
+
 # OS files
 .DS_Store
 Thumbs.db
