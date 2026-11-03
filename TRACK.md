@@ -12,7 +12,7 @@
 | **Phase 2** | **Engagement & Discovery** | ✅ **Completed** | [`d3d83fc`](file:///c:/Users/ASUS/Desktop/Boi-Hat) | Recommendation Engine, Wishlists, Saved Searches, Dynamic Carousels, User Onboarding |
 | **Phase 3** | **Monetization & Escrow** | ✅ **Completed** | [`5410032`](file:///c:/Users/ASUS/Desktop/Boi-Hat) | SSLCommerz Gateway, Ad Boost Packages, Seller Wallet Escrow, 48h Protection, Reviews |
 | **Phase 4** | **Native Courier Logistics** | ✅ **Completed** | [`314b985`](file:///c:/Users/ASUS/Desktop/Boi-Hat) | Pathao / Steadfast / RedX APIs, Live Tracking Stepper, Webhook Escrow Trigger, Simulator |
-| **Phase 5** | **Merchant Tools & Mobile Apps** | ✅ **Completed** | *Pending Commit* | Bulk CSV Upload, Barcode/ISBN Scanner, Nilkhet Merchant Storefronts, PWA Mobile Shell |
+| **Phase 5** | **Merchant Tools & Mobile Apps** | ✅ **Completed** | [`b98145c`](file:///c:/Users/ASUS/Desktop/Boi-Hat) | Bulk CSV Upload, Barcode/ISBN Scanner, Nilkhet Merchant Storefronts, PWA Mobile Shell |
 | **Phase 6** | **Production Hardening** | ⚪ *Planned* | *Scheduled* | SMS Gateway (SSL Wireless), Redis Clustering, AI Condition Grader, Performance CDN |
 
 ---
