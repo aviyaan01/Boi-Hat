@@ -178,11 +178,15 @@ The database initializes with **195 realistic books**, **33 categories**, **30 a
 
 ---
 
-## 📜 Phase Progression (Master Prompt Compliance)
+## 📜 Phase Progression & Master Prompt Compliance
 
-* **Phase 1 (Complete):** Phone OTP Auth, Seeded Catalog (195 books across 33 categories), Search & Deep Filtering, Book Details & Seller Profile, In-App Messaging, Cash on Delivery Order Flow, Admin Control Panel, Bilingual UI, and Docker Compose configuration.
-* **Phase 2 (Upcoming):** Onboarding preferences, rule-based recommendation weighting, wishlist & saved searches, and FCM push notifications.
-* **Phase 3 (Upcoming):** Featured/Urgent paid ad packages, SSLCommerz online payment gateway, seller wallet, and review system.
-* **Phase 4 (Upcoming):** Native courier API integration (Pathao/Steadfast/RedX) and courier automated webhooks.
-* **Phase 5 (Upcoming):** Merchant bulk CSV upload and native Flutter/WebView mobile app.
+All 5 core development phases from the **Master Development Prompt (Bangladesh)** have been completely built, tested, and verified:
+
+* **✅ Phase 1 (MVP Core — Commit `1937400`):** Phone OTP Auth, Seeded Catalog (195 books across 33 categories, 30 authors), Banglish & Phonetic Search, Book Details & Seller Profile, In-App Real-Time Messaging, Cash on Delivery (COD) Order Flow, 48-Hour Buyer Protection, Admin Control Panel (`/admin`), Bilingual UI (Bangla default / English toggle), and Docker Compose full-stack configuration.
+* **✅ Phase 2 (Engagement & Discovery — Commit `d3d83fc`):** Rule-based recommendation engine (scoring category affinity, author matches, recency, popularity), Homepage Personalized Feed ("আপনার জন্য বাছাইকৃত বই"), Wishlist & Price-Drop Tracking (`/wishlist`), Saved Searches & In-App Alerts, and 3-step User Onboarding Flow.
+* **✅ Phase 3 (Monetization & Escrow — Commit `5410032`):** SSLCommerz payment gateway provider (bKash, Nagad, Upay, Visa, Mastercard) with interactive `/payments/mock-gateway`, Listing Boost Packages (Featured ৳49, Urgent ৳29, Highlight ৳19), Seller Wallet (`/wallet`) with pending escrow vs available balance and payout requests, and Verified Buyer 1–5 star reviews & ratings.
+* **✅ Phase 4 (Native Courier Logistics — Commit `314b985`):** Modular courier integration for **Pathao**, **Steadfast**, and **RedX**, tiered weight-bucket delivery fee calculation, Seller Courier Booking Modal (`CourierBookingModal.tsx`), Live 5-Step Tracking Stepper (`CourierTrackingModal.tsx`), automated inbound webhooks progressing orders and triggering 48-hour buyer protection escrow, and dedicated testing lab (`/courier-simulator`).
+* **✅ Phase 5 (Merchant Bulk Tools & Mobile Apps — Commit `b98145c`):** High-volume Merchant CSV Bulk Upload Engine (`/bulk-upload`) with bilingual header parsing and validation, HTML5 Barcode & ISBN Camera Scanner (`BarcodeScannerModal.tsx`) integrated into `/post-ad`, Nilkhet & Banglabazar Verified Merchant Storefronts (`/shop/[id]`), and PWA Mobile Shell with mobile bottom navigation (`MobileBottomNav.tsx`).
+
+See [**`TRACK.md`**](TRACK.md) for the complete roadmap, test suites, and commit history.
 
