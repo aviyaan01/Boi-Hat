@@ -23,6 +23,7 @@ import {
   Sparkles,
   Wallet,
   Truck,
+  FileSpreadsheet,
 } from 'lucide-react';
 import AuthModal from './AuthModal';
 import OnboardingModal from './OnboardingModal';
@@ -251,6 +252,15 @@ export default function Navbar() {
                         <span>কুরিয়ার ট্র্যাকিং ও সিমুলেটর</span>
                       </Link>
 
+                      <Link
+                        href="/bulk-upload"
+                        onClick={() => setUserDropdownOpen(false)}
+                        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                      >
+                        <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                        <span>বাল্ক ইনভেন্টরি আপলোড (CSV)</span>
+                      </Link>
+
                       <button
                         onClick={() => {
                           setUserDropdownOpen(false);
@@ -372,6 +382,13 @@ export default function Navbar() {
                   className="block py-2 text-sm text-gray-800"
                 >
                   কুরিয়ার ট্র্যাকিং ও সিমুলেটর
+                </Link>
+                <Link
+                  href="/bulk-upload"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block py-2 text-sm text-gray-800"
+                >
+                  বাল্ক সিএসভি আপলোড
                 </Link>
                 <Link
                   href="/dashboard"

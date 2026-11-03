@@ -12,7 +12,7 @@
 | **Phase 2** | **Engagement & Discovery** | ✅ **Completed** | [`d3d83fc`](file:///c:/Users/ASUS/Desktop/Boi-Hat) | Recommendation Engine, Wishlists, Saved Searches, Dynamic Carousels, User Onboarding |
 | **Phase 3** | **Monetization & Escrow** | ✅ **Completed** | [`5410032`](file:///c:/Users/ASUS/Desktop/Boi-Hat) | SSLCommerz Gateway, Ad Boost Packages, Seller Wallet Escrow, 48h Protection, Reviews |
 | **Phase 4** | **Native Courier Logistics** | ✅ **Completed** | [`314b985`](file:///c:/Users/ASUS/Desktop/Boi-Hat) | Pathao / Steadfast / RedX APIs, Live Tracking Stepper, Webhook Escrow Trigger, Simulator |
-| **Phase 5** | **Merchant Tools & Mobile Apps** | 🟡 **Up Next** | *Pending* | Bulk CSV Upload, Barcode/ISBN Scanner, Nilkhet Merchant Storefronts, PWA Mobile Shell |
+| **Phase 5** | **Merchant Tools & Mobile Apps** | ✅ **Completed** | *Pending Commit* | Bulk CSV Upload, Barcode/ISBN Scanner, Nilkhet Merchant Storefronts, PWA Mobile Shell |
 | **Phase 6** | **Production Hardening** | ⚪ *Planned* | *Scheduled* | SMS Gateway (SSL Wireless), Redis Clustering, AI Condition Grader, Performance CDN |
 
 ---
@@ -58,49 +58,24 @@
 
 ---
 
-## 🎯 Phase 5: Action Plan & Implementation Blueprint
-
-Phase 5 transitions Boi-Hat into high-volume physical merchant adoption (Nilkhet, Banglabazar, Katabon bookshops) and mobile-optimized field workflows.
-
-### 5.1 Merchant Inventory CSV Bulk Upload
-- **Goal:** Enable physical bookstores with 500+ books to import their entire stock via CSV in seconds rather than listing books individually.
-- **Components to Build:**
-  - [ ] **CSV Parser & Validator (`apps/api/src/modules/merchants/`):**
-    - Supported headers: `isbn`, `title_bn`, `title_en`, `author`, `category`, `condition`, `original_price`, `sale_price`, `stock_quantity`, `description`, `shelf_location`.
-    - Automated Bengali/English header detection and value validation.
-    - Error reporting highlighting exact invalid rows without dropping valid entries.
-  - [ ] **Bulk Import UI (`apps/web/app/(seller)/bulk-upload/page.tsx`):**
-    - Drag-and-drop CSV zone with downloadable sample template (`boi_hat_inventory_template.csv`).
-    - Pre-upload table preview showing parsed book rows, validation warnings, and batch summary.
-    - Progress bar indicating batch insertion and automatic catalog publishing.
-
-### 5.2 Barcode & ISBN Camera Scanner
-- **Goal:** Allow sellers and merchants at bookstalls to scan a book's physical barcode or ISBN using their mobile or webcam to auto-populate book details.
-- **Components to Build:**
-  - [ ] **Barcode Scanner Component (`apps/web/components/BarcodeScannerModal.tsx`):**
-    - HTML5 camera stream integration using `@zxing/library` or native BarcodeDetector API.
-    - Real-time EAN-13 / ISBN-10 / ISBN-13 barcode detection.
-    - Auto-lookup fallback to query local database or OpenLibrary/Google Books API to autofill title, author, and published year.
-  - [ ] **Post-Ad Integration (`apps/web/app/(seller)/post-ad/page.tsx`):**
-    - "ক্যামেরা দিয়ে বারকোড স্ক্যান করুন (Scan Barcode)" button next to ISBN input.
-
-### 5.3 Nilkhet & Banglabazar Merchant Storefronts
-- **Goal:** Dedicated merchant profile pages highlighting verified physical bookstore locations in Dhaka.
-- **Components to Build:**
-  - [ ] **Merchant Profile & Badging:**
-    - Verified physical shop badge ("নীলক্ষেত ভেরিফাইড বুকশপ" / "বাংলাবাজার বুকস্টল").
-    - Shop location details: Market name, shop/stall number, and pickup hours.
-  - [ ] **Storefront Inventory Search:**
-    - Filter listings specifically within that merchant's inventory.
-
-### 5.4 Progressive Web App (PWA) Mobile Shell
-- **Goal:** App-like mobile experience for buyers and sellers without requiring App Store downloads.
-- **Components to Build:**
-  - [ ] **PWA Manifest & Service Worker (`manifest.json`):**
-    - Standalone display mode, theme colors (`#059669` emerald), high-res book icons.
-    - Offline fallback shell with local caching for book searches and order viewing.
-  - [ ] **Mobile Bottom Navigation Bar:**
-    - Fixed bottom navigation for mobile viewports (Home, Search, Sell, Orders, Wallet).
+### ✅ Phase 5: Merchant Tools & Mobile Experience (Completed)
+- [x] **Merchant CSV Bulk Upload Engine (`apps/api/src/modules/merchants/`):**
+  - Flexible Bengali/English header mapper (`title_bn`, `author`, `isbn`, `condition`, `sale_price`, `stock_quantity`, `shelf_location`).
+  - Strict validation catches invalid prices, missing titles, and maps conditions (LIKE_NEW, GOOD, ACCEPTABLE).
+  - Sample CSV template generator (`GET /merchants/template`).
+- [x] **Bulk Import UI (`apps/web/app/(seller)/bulk-upload/page.tsx`):**
+  - Drag-and-drop CSV upload, downloadable template, pre-upload validation table, and instant batch import.
+- [x] **Barcode & ISBN Camera Scanner (`apps/web/components/BarcodeScannerModal.tsx`):**
+  - HTML5 video camera stream with targeting viewfinder, ISBN manual fallback, and instant metadata autofill.
+  - Integrated directly into post-ad listing flow (`apps/web/app/(seller)/post-ad/page.tsx`).
+- [x] **Nilkhet & Banglabazar Verified Merchant Storefronts (`apps/web/app/shop/[id]/page.tsx`):**
+  - Verified physical bookshop badges, market location, trade license indicator, opening hours, and filtered inventory search.
+- [x] **Progressive Web App (PWA) Mobile Shell:**
+  - `manifest.json` configured with emerald theme `#059669` and standalone display mode.
+  - Fixed mobile bottom navigation bar (`apps/web/components/MobileBottomNav.tsx`) with Home, Books, Sell (+), Orders, and Wallet.
+- [x] **Automated Verification:**
+  - 11/11 test suites passing (**47 unit/integration tests**).
+  - 15/15 Next.js pages successfully compiled and generated.
 
 ---
 
@@ -108,7 +83,7 @@ Phase 5 transitions Boi-Hat into high-volume physical merchant adoption (Nilkhet
 
 Current health metrics of the repository:
 
-- **API Unit & Integration Tests:** 10 passed, 10 total (43 tests).
+- **API Unit & Integration Tests:** 11 passed, 11 total (47 tests).
   - Auth Service & Phone Validation: `PASS`
   - Orders & Checkout Flow: `PASS`
   - SSLCommerz & bKash Gateway: `PASS`
@@ -117,8 +92,9 @@ Current health metrics of the repository:
   - Recommendations Engine: `PASS`
   - Reviews & Ratings: `PASS`
   - Courier Logistics & Webhook Simulation: `PASS`
+  - Merchants Bulk CSV & Storefront Service: `PASS`
   - Full End-to-End Buyer/Seller Cycle: `PASS`
-- **Next.js Production Build:** 14 static and dynamic routes compiled with zero TypeScript or linting errors.
+- **Next.js Production Build:** 15 static and dynamic routes compiled with zero TypeScript or linting errors.
 
 ---
 
@@ -131,3 +107,4 @@ Current health metrics of the repository:
    - What decision is required before continuing.
 3. **Localization Integrity:** Default UI language remains Bangla (`bn`) with seamless English toggle (`en`), BDT (`৳`) pricing, and Dhaka-centric logistics.
 4. **Git Versioning:** Every completed phase receives a clean atomic Git commit with detailed message headers.
+

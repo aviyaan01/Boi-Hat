@@ -15,6 +15,7 @@ import { AdsModule } from './modules/ads/ads.module';
 import { WalletModule } from './modules/wallet/wallet.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { CouriersModule } from './modules/couriers/couriers.module';
+import { MerchantsModule } from './modules/merchants/merchants.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { CouriersModule } from './modules/couriers/couriers.module';
     WalletModule,
     ReviewsModule,
     CouriersModule,
+    MerchantsModule,
   ],
 })
 export class AppModule {}

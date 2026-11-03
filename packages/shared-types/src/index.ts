@@ -519,4 +519,55 @@ export interface DeliveryFeeEstimate {
   estimated_delivery_hours: number;
 }
 
+// --- Phase 5: Merchant Bulk Operations & Storefront Types ---
+export interface MerchantShop {
+  id: string;
+  user_id: string;
+  shop_name_bn: string;
+  shop_name_en: string;
+  market_location: 'nilkhet' | 'banglabazar' | 'katabon' | 'shahbagh' | 'other';
+  market_name_bn: string;
+  stall_number: string;
+  contact_phone: string;
+  verified: boolean;
+  operating_hours: string;
+  description?: string;
+  logo_url?: string;
+  total_listings?: number;
+  rating?: number;
+  created_at: string;
+}
+
+export interface BulkImportRow {
+  row_number: number;
+  isbn?: string;
+  title_bn: string;
+  title_en?: string;
+  author: string;
+  category: string;
+  condition: BookCondition;
+  original_price?: number;
+  sale_price: number;
+  stock_quantity: number;
+  shelf_location?: string;
+  description?: string;
+  errors: string[];
+  warnings: string[];
+  is_valid: boolean;
+}
+
+export interface BulkImportPreviewResponse {
+  total_rows: number;
+  valid_rows: number;
+  invalid_rows: number;
+  items: BulkImportRow[];
+}
+
+export interface BulkImportResult {
+  imported_count: number;
+  skipped_count: number;
+  book_ids: string[];
+  message: string;
+}
+
 

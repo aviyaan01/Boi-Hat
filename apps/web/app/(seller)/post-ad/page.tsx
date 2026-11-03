@@ -21,7 +21,10 @@ import {
   HelpCircle,
   Sparkles,
   BookPlus,
+  Camera,
+  Barcode,
 } from 'lucide-react';
+import BarcodeScannerModal from '../../../components/BarcodeScannerModal';
 
 export default function PostAdPage() {
   const router = useRouter();
@@ -42,6 +45,8 @@ export default function PostAdPage() {
   const [weightBucket, setWeightBucket] = useState<WeightBucket>(WeightBucket.UNDER_300G);
   const [description, setDescription] = useState('');
   const [isRare, setIsRare] = useState(false);
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [scannedIsbn, setScannedIsbn] = useState('');
 
   // Photos state (minimum 3 required, 5 for rare)
   const [images, setImages] = useState<string[]>([
@@ -103,6 +108,25 @@ export default function PostAdPage() {
         setReqAuthorEn('');
         setReqAuthorBn('');
       }, 1500);
+    }
+  };
+
+  const handleScannedBook = (meta: any) => {
+    if (meta.title_bn) setTitleBn(meta.title_bn);
+    if (meta.title_en) setTitleEn(meta.title_en || meta.title_bn);
+    if (meta.description) setDescription(meta.description);
+    if (meta.original_price) setOriginalPrice(String(meta.original_price));
+    if (meta.isbn) setScannedIsbn(meta.isbn);
+
+    if (meta.author && authors.length > 0) {
+      const cleanAuth = meta.author.toLowerCase();
+      const matched = authors.find(
+        (a) =>
+          a.name_bn.includes(meta.author) ||
+          meta.author.includes(a.name_bn) ||
+          a.name_en.toLowerCase().includes(cleanAuth),
+      );
+      if (matched) setAuthorId(matched.id);
     }
   };
 
@@ -187,6 +211,36 @@ export default function PostAdPage() {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-8 bg-white p-6 sm:p-8 rounded-3xl border border-gray-200 shadow-sm">
+        {/* Quick Barcode Scanner Banner (Phase 5) */}
+        <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200/80 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+              <Barcode className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
+                <span>বারকোড ও ISBN ক্যামেরা স্ক্যানার</span>
+                {scannedIsbn && (
+                  <span className="text-[10px] bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded font-mono">
+                    {scannedIsbn}
+                  </span>
+                )}
+              </h4>
+              <p className="text-[11px] text-emerald-800">
+                বইয়ের পেছনের বারকোড স্ক্যান করলে নাম, লেখক ও বিবরণ স্বয়ংক্রিয়ভাবে বসে যাবে
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setScannerOpen(true)}
+            className="w-full sm:w-auto px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm transition active:scale-95 shrink-0 flex items-center justify-center gap-1.5"
+          >
+            <Camera className="w-3.5 h-3.5" />
+            <span>বারকোড স্ক্যান করুন</span>
+          </button>
+        </div>
+
         {/* Photo Upload Section (Min 3 required) */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
@@ -552,6 +606,13 @@ export default function PostAdPage() {
           </div>
         </div>
       )}
+
+      {/* Barcode Scanner Modal (Phase 5) */}
+      <BarcodeScannerModal
+        isOpen={scannerOpen}
+        onClose={() => setScannerOpen(false)}
+        onDetected={handleScannedBook}
+      />
     </div>
   );
 }

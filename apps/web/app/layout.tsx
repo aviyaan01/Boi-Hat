@@ -5,6 +5,7 @@ import { I18nProvider } from '../lib/i18n';
 import { AuthProvider } from '../lib/auth';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import MobileBottomNav from '../components/MobileBottomNav';
 
 export const metadata: Metadata = {
   title: 'Boi-Hat বই হাট - Used & Rare Book Marketplace Bangladesh',
@@ -30,8 +31,9 @@ export default function RootLayout({
         <I18nProvider>
           <AuthProvider>
             <Navbar />
-            <main className="flex-1">{children}</main>
+            <main className="flex-1 pb-16 md:pb-0">{children}</main>
             <Footer />
+            <MobileBottomNav />
           </AuthProvider>
         </I18nProvider>
       </body>

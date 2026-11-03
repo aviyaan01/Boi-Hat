@@ -1957,5 +1957,183 @@ export class DatabaseService implements OnModuleInit {
 
     return parcel;
   }
-}
 
+  // --- Phase 5: Merchant & Storefront Methods ---
+  async getAllShops() {
+    return this.shops.map((s) => {
+      const bookCount = this.books.filter((b) => b.shop_id === s.id).length;
+      return {
+        ...s,
+        total_listings: bookCount,
+      };
+    });
+  }
+
+  async getShopById(shopId: string) {
+    const shop = this.shops.find((s) => s.id === shopId || s.slug === shopId);
+    if (!shop) return null;
+    const bookCount = this.books.filter((b) => b.shop_id === shop.id).length;
+    return {
+      ...shop,
+      total_listings: bookCount,
+    };
+  }
+
+  async getShopByUserId(userId: string) {
+    const shop = this.shops.find((s) => s.user_id === userId);
+    if (!shop) return null;
+    const bookCount = this.books.filter((b) => b.shop_id === shop.id).length;
+    return {
+      ...shop,
+      total_listings: bookCount,
+    };
+  }
+
+  async updateShop(shopId: string, data: Partial<any>) {
+    const shop = this.shops.find((s) => s.id === shopId);
+    if (!shop) throw new NotFoundException('দোকান বা শপ পাওয়া যায়নি');
+    Object.assign(shop, data);
+    return shop;
+  }
+
+  async getBooksByShopId(shopId: string) {
+    const rawBooks = this.books.filter((b) => b.shop_id === shopId && b.status === BookStatus.ACTIVE);
+    return rawBooks.map((b) => this.hydrateBook(b));
+  }
+
+  findOrCreateAuthor(name: string) {
+    const clean = (name || '').trim();
+    if (!clean) return this.authors[0];
+
+    const lower = clean.toLowerCase();
+    const existing = this.authors.find(
+      (a) =>
+        a.name_bn.includes(clean) ||
+        a.name_en.toLowerCase().includes(lower) ||
+        (a.aliases || []).some((al: string) => al.toLowerCase().includes(lower)),
+    );
+
+    if (existing) return existing;
+
+    const newAuthor = {
+      id: `author-uuid-${uuidv4()}`,
+      name_bn: clean,
+      name_en: clean,
+      bio_bn: `${clean}-এর গ্রন্থাবলি`,
+      bio_en: `Author profile of ${clean}`,
+      photo_url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&q=80',
+      birth_year: null,
+      death_year: null,
+      aliases: [clean],
+      is_featured: false,
+    };
+    this.authors.push(newAuthor);
+    return newAuthor;
+  }
+
+  findOrCreateCategory(name: string) {
+    const clean = (name || '').trim();
+    if (!clean) return this.categories[0];
+
+    const lower = clean.toLowerCase();
+    const existing = this.categories.find(
+      (c) =>
+        c.name_bn.includes(clean) ||
+        c.name_en.toLowerCase().includes(lower) ||
+        c.slug.toLowerCase().includes(lower),
+    );
+
+    if (existing) return existing;
+
+    const newCat = {
+      id: `cat-uuid-${uuidv4()}`,
+      name_bn: clean,
+      name_en: clean,
+      slug: clean.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      icon_url: 'book-open',
+      parent_id: null,
+      sort_order: this.categories.length + 1,
+    };
+    this.categories.push(newCat);
+    return newCat;
+  }
+
+  async bulkCreateBooks(
+    sellerId: string,
+    shopId: string | null,
+    items: Array<{
+      isbn?: string;
+      title_bn: string;
+      title_en?: string;
+      author: string;
+      category: string;
+      condition: BookCondition;
+      price: number;
+      original_price?: number;
+      stock_count?: number;
+      description?: string;
+      shelf_location?: string;
+    }>,
+  ) {
+    const now = new Date().toISOString();
+    const createdBookIds: string[] = [];
+
+    for (const item of items) {
+      const author = this.findOrCreateAuthor(item.author);
+      const category = this.findOrCreateCategory(item.category);
+      const bookId = `book-uuid-${uuidv4()}`;
+
+      const newBook = {
+        id: bookId,
+        seller_id: sellerId,
+        shop_id: shopId || null,
+        title_en: item.title_en || item.title_bn,
+        title_bn: item.title_bn,
+        author_id: author.id,
+        publisher_id: null,
+        description:
+          item.description ||
+          `ISBN: ${item.isbn || 'N/A'}. অবস্থা: ${item.condition}. তাক/লোকেশন: ${item.shelf_location || 'সাধারণ তাক'}`,
+        condition: item.condition || BookCondition.GOOD,
+        language: BookLanguage.BN,
+        price: Number(item.price),
+        original_price: item.original_price ? Number(item.original_price) : null,
+        edition: null,
+        publication_year: null,
+        is_rare: false,
+        is_featured: false,
+        stock_count: item.stock_count || 1,
+        status: BookStatus.ACTIVE,
+        view_count: 0,
+        weight_bucket: WeightBucket.UNDER_300G,
+        created_at: now,
+        updated_at: now,
+      };
+
+      this.books.unshift(newBook);
+      createdBookIds.push(bookId);
+
+      // Add default book image
+      this.bookImages.push({
+        id: `img-uuid-${uuidv4()}`,
+        book_id: bookId,
+        url: 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=600&q=80',
+        sort_order: 0,
+        is_primary: true,
+        created_at: now,
+      });
+
+      // Link category
+      this.bookCategories.push({
+        id: `bc-uuid-${uuidv4()}`,
+        book_id: bookId,
+        category_id: category.id,
+      });
+    }
+
+    return {
+      imported_count: createdBookIds.length,
+      book_ids: createdBookIds,
+    };
+  }
+}
