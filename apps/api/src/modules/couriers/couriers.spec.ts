@@ -174,3 +174,4 @@ describe('Couriers & Logistics Integration (Phase 4)', () => {
     expect(wallet.pending_balance).toBeGreaterThan(0);
   });
 });
+

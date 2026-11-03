@@ -135,3 +135,4 @@ export class CouriersService {
     return this.db.calculateDeliveryFee(city, weightBucket, provider);
   }
 }
+

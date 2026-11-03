@@ -18,3 +18,4 @@ export interface ICourierProvider {
   verifyWebhook(payload: any, headers?: Record<string, any>): boolean;
   parseWebhookEvent(payload: any): ParsedWebhookEvent;
 }
+
