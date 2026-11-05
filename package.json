@@ -8,12 +8,14 @@
   ],
   "scripts": {
     "dev:api": "npm --workspace=@boi-hat/api run start:dev",
-    "dev:web": "npm --workspace=@boi-hat/web run dev",
+    "dev:mobile": "cd apps/mobile && flutter run",
+    "build:mobile": "cd apps/mobile && flutter build apk",
     "build:types": "npm --workspace=@boi-hat/shared-types run build",
-    "build": "npm run build:types && npm --workspace=@boi-hat/api run build && npm --workspace=@boi-hat/web run build",
+    "build": "npm run build:types && npm --workspace=@boi-hat/api run build",
     "migrate": "npm --workspace=@boi-hat/api run prisma:migrate",
     "seed": "npm --workspace=@boi-hat/api run prisma:seed",
     "test": "npm --workspace=@boi-hat/api run test",
+    "test:mobile": "cd apps/mobile && flutter test",
     "test:e2e": "npx playwright test"
   },
   "devDependencies": {
