@@ -12,7 +12,8 @@
 | **Phase 2** | **Engagement & Discovery** | ✅ **Completed** | [`d3d83fc`](file:///c:/Users/ASUS/Desktop/Boi-Hat) | Recommendation Engine, Wishlists, Saved Searches, Dynamic Carousels, User Onboarding |
 | **Phase 3** | **Monetization & Escrow** | ✅ **Completed** | [`5410032`](file:///c:/Users/ASUS/Desktop/Boi-Hat) | SSLCommerz Gateway, Ad Boost Packages, Seller Wallet Escrow, 48h Protection, Reviews |
 | **Phase 4** | **Native Courier Logistics** | ✅ **Completed** | [`314b985`](file:///c:/Users/ASUS/Desktop/Boi-Hat) | Pathao / Steadfast / RedX APIs, Live Tracking Stepper, Webhook Escrow Trigger, Simulator |
-| **Phase 5** | **Merchant Tools & Mobile Apps** | ✅ **Completed** | [`b98145c`](file:///c:/Users/ASUS/Desktop/Boi-Hat) | Bulk CSV Upload, Barcode/ISBN Scanner, Nilkhet Merchant Storefronts, PWA Mobile Shell |
+| **Phase 5** | **Merchant Tools & Storefronts** | ✅ **Completed** | [`b98145c`](file:///c:/Users/ASUS/Desktop/Boi-Hat) | Bulk CSV Upload, Barcode/ISBN Scanner, Nilkhet Merchant Storefronts |
+| **Phase 5.5** | **Native Flutter Mobile App (Android APK)** | ✅ **Completed** | [`0b60d8c`](file:///c:/Users/ASUS/Desktop/Boi-Hat) | Pure Flutter/Dart mobile app, Material 3, 5 Tabs, Escrow, Live Stepper, APK Release |
 | **Phase 6** | **Production Hardening** | ⚪ *Planned* | *Scheduled* | SMS Gateway (SSL Wireless), Redis Clustering, AI Condition Grader, Performance CDN |
 
 ---
@@ -76,6 +77,33 @@
 - [x] **Automated Verification:**
   - 11/11 test suites passing (**47 unit/integration tests**).
   - 15/15 Next.js pages successfully compiled and generated.
+
+---
+
+### ✅ Phase 5.5: Native Flutter Mobile App & Android APK Release (Completed — Commit `0b60d8c`)
+- [x] **Full Flutter Monorepo Integration (`apps/mobile`):**
+  - Pure Flutter 3.47 / Dart 3.13 project initialized with zero webview dependency.
+  - Emerald Material 3 Theme (`#059669`) with Bangla typographic scale.
+  - MultiProvider state management: `AuthProvider`, `BooksProvider`, `OrdersProvider`, `WalletProvider`.
+- [x] **Core Mobile Screens & Navigation:**
+  - `MainNavScreen`: Fixed 5-tab bottom navigation (হোম, অনুসন্ধান, বিক্রি করুন, অর্ডার, ওয়ালেট).
+  - `HomeScreen`: Category carousels, personalized feed ("আপনার জন্য বাছাইকৃত বই"), rare & vintage books, 2-column recent grid.
+  - `SearchScreen`: Banglish and Bengali live search with condition filters (নতুন মতো, ভালো, মোটামুটি).
+  - `BookDetailScreen`: Cover gallery, condition badges, seller info, direct COD/bKash checkout dialog.
+  - `PostAdScreen`: Form validation, price & MRP fields, condition picker, 5-photo rule for rare books.
+  - `OrdersScreen`: Tabbed orders, live status chips, 48-hour buyer protection dispute modal.
+  - `CourierTrackingSheet`: 5-step milestone stepper (Booked → Picked Up → In Transit → Out for Delivery → Delivered) with live simulation buttons.
+  - `WalletScreen`: Available balance, escrow pending balance, bKash/Nagad payout withdrawal dialog, transaction ledger.
+- [x] **Android Permissions & Network Hardening:**
+  - Added `<uses-permission android:name="android.permission.INTERNET" />` to `src/main/AndroidManifest.xml`.
+  - Added `android:networkSecurityConfig="@xml/network_security_config"` and `android:usesCleartextTraffic="true"`.
+  - Configured NestJS API to bind explicitly to `0.0.0.0:4000` for all interface accessibility.
+  - Created interactive `ServerConfigDialog` with ping tester and dynamic runtime URL persistence.
+- [x] **Production APK Artifacts:**
+  - `boi-hat.apk` (~52 MB release build in root) and `apps/mobile/build/app/outputs/flutter-apk/app-release.apk`.
+  - `flutter analyze`: **0 issues found**.
+  - `flutter test`: **All tests passed**.
+  - API Integration: **11/11 test suites passed (47/47 tests)**.
 
 ---
 
