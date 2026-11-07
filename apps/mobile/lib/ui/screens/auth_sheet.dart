@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../core/api_client.dart';
 import '../../core/app_theme.dart';
 import '../../providers/auth_provider.dart';
+import '../widgets/server_config_dialog.dart';
 
 class AuthSheet extends StatefulWidget {
   const AuthSheet({super.key});
@@ -232,6 +234,15 @@ class _AuthSheetState extends State<AuthSheet> {
               padding: const EdgeInsets.symmetric(vertical: 12),
               side: const BorderSide(color: Color(0xFFCBD5E1)),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+          const SizedBox(height: 6),
+          TextButton.icon(
+            onPressed: () => ServerConfigDialog.show(context),
+            icon: const Icon(Icons.settings_ethernet, size: 16, color: AppTheme.textSecondary),
+            label: Text(
+              'সার্ভার কনফিগারেশন (${ApiClient.baseUrl})',
+              style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
             ),
           ),
         ],

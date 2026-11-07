@@ -32,8 +32,8 @@ async function bootstrap() {
   app.useGlobalFilters(new HttpExceptionFilter());
 
   const port = process.env.PORT || process.env.API_PORT || 4000;
-  await app.listen(port);
-  logger.log(`🚀 Boi-Hat API server running at http://localhost:${port}`);
+  await app.listen(port, '0.0.0.0');
+  logger.log(`🚀 Boi-Hat API server running at http://0.0.0.0:${port} (listening on all interfaces)`);
 }
 
 bootstrap();

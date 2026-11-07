@@ -4,6 +4,7 @@ import '../../core/app_theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/books_provider.dart';
 import '../widgets/book_card.dart';
+import '../widgets/server_config_dialog.dart';
 import 'auth_sheet.dart';
 import 'search_screen.dart';
 
@@ -58,6 +59,11 @@ class HomeScreen extends StatelessWidget {
                 Icon(Icons.arrow_drop_down, color: AppTheme.textSecondary, size: 16),
               ],
             ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings_ethernet, color: AppTheme.primary, size: 20),
+            tooltip: 'সার্ভার আইপি কনফিগারেশন',
+            onPressed: () => ServerConfigDialog.show(context),
           ),
           IconButton(
             icon: Icon(

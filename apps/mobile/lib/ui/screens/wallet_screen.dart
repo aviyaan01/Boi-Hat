@@ -5,6 +5,7 @@ import '../../core/app_theme.dart';
 import '../../core/formatters.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/wallet_provider.dart';
+import '../widgets/server_config_dialog.dart';
 import 'auth_sheet.dart';
 
 class WalletScreen extends StatefulWidget {
@@ -215,6 +216,11 @@ class _WalletScreenState extends State<WalletScreen> {
       appBar: AppBar(
         title: const Text('আমার ওয়ালেট ও প্রোফাইল'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.settings_ethernet, color: AppTheme.primary),
+            tooltip: 'সার্ভার আইপি কনফিগারেশন',
+            onPressed: () => ServerConfigDialog.show(context),
+          ),
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.red),
             tooltip: 'লগআউট',
