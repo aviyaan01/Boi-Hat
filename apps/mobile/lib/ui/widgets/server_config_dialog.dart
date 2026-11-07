@@ -140,6 +140,24 @@ class _ServerConfigDialogState extends State<ServerConfigDialog> {
                 : const Icon(Icons.network_ping, size: 16),
             label: const Text('কানেকশন টেস্ট করুন', style: TextStyle(fontSize: 12)),
           ),
+          const Divider(height: 24),
+          const Text(
+            'সেন্ট্রি (Sentry) মনিটরিং টেস্ট:',
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
+          ),
+          const SizedBox(height: 8),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF362D59),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 10),
+            ),
+            onPressed: () {
+              throw StateError('This is test exception');
+            },
+            icon: const Icon(Icons.bug_report, size: 16),
+            label: const Text('Verify Sentry Setup', style: TextStyle(fontSize: 12)),
+          ),
         ],
       ),
       actions: [
