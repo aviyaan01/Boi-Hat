@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "678671076691",
+    "project_id": "boi-hat",
+    "storage_bucket": "boi-hat.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:678671076691:android:23a9403ab83ba6a08425a6",
+        "android_client_info": {
+          "package_name": "www.boihat.com"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDeKZd06OMKuX0jINbEq_dyYq3j4lOBZmk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
