@@ -19,6 +19,7 @@ const String kSentryDsn = String.fromEnvironment(
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await ApiClient.init();
+  runApp(const BoiHatApp());
 
   await SentryFlutter.init(
     (options) {
