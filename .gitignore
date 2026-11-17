@@ -40,3 +40,4 @@ apps/web/android/local.properties
 .DS_Store
 Thumbs.db
 
+.neon

@@ -38,6 +38,7 @@ describe('AuthService (Email-Verified Account System)', () => {
 
     emailService = new EmailService(configService);
     emailService.onModuleInit();
+    jest.spyOn(emailService, 'sendVerificationCode').mockResolvedValue(true);
 
     authService = new AuthService(db, jwtService, configService, emailService);
   });

@@ -7,6 +7,8 @@
     "apps/*"
   ],
   "scripts": {
+    "dev": "npm --workspace=@boi-hat/web run dev",
+    "dev:web": "npm --workspace=@boi-hat/web run dev",
     "dev:api": "npm --workspace=@boi-hat/api run start:dev",
     "dev:mobile": "cd apps/mobile && flutter run",
     "build:mobile": "cd apps/mobile && flutter build apk",
@@ -20,5 +22,9 @@
   },
   "devDependencies": {
     "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@neon/config": "^1.14.1",
+    "@neon/env": "^2.1.4"
   }
 }

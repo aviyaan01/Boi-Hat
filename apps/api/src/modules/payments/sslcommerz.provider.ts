@@ -40,7 +40,7 @@ export class SslCommerzProvider {
     const sessionKey = `SSL-SESSION-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
 
     // In dev / test / mock mode, redirect to high-fidelity simulated checkout gateway
-    const isMock = !this.isLive && (!this.storeId || this.storeId === 'boihat_dev');
+    const isMock = !this.isLive && (!this.storeId || this.storeId === 'boihat_dev' || this.storeId === 'test_store');
 
     if (isMock) {
       const mockGatewayUrl = `${this.webBaseUrl}/payments/mock-gateway?tran_id=${params.transactionId}&amount=${params.amount}&order_id=${params.orderId || ''}&book_id=${params.bookId || ''}&ad_package=${params.adPackage || ''}`;

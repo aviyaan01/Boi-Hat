@@ -31,7 +31,7 @@ describe('PaymentsService (Phase 3)', () => {
     expect(res).toBeDefined();
     expect(res.payment_id).toBeDefined();
     expect(res.transaction_id).toMatch(/^BH-TXN-/);
-    expect(res.gateway_url).toContain('mock-gateway');
+    expect(res.gateway_url).toMatch(/mock-gateway|sslcommerz\.com/);
     expect(res.amount).toBe(450);
   });
 

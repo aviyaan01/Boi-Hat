@@ -132,6 +132,15 @@ export default function Navbar() {
                 <Heart className="w-5 h-5" />
               </Link>
 
+              {/* Neon Server Action Demo Link */}
+              <Link
+                href="/comments"
+                className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-full border border-emerald-200 transition"
+                title="Neon Server Action Comments"
+              >
+                <span>Neon কমেন্ট</span>
+              </Link>
+
               {/* Notifications Popover (Phase 2) */}
               {user && (
                 <div className="relative">
@@ -359,6 +368,13 @@ export default function Navbar() {
               className="block py-2 text-sm font-semibold text-amber-700"
             >
               দুর্লভ ও সংগ্রাহক বই (Rare & Vintage)
+            </Link>
+            <Link
+              href="/comments"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block py-2 text-sm font-semibold text-emerald-700"
+            >
+              Neon PostgreSQL কমেন্ট (Server Action)
             </Link>
             {user && (
               <>

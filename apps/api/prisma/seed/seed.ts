@@ -64,6 +64,21 @@ async function main() {
     },
   });
 
+  const seller3 = await prisma.user.upsert({
+    where: { phone: '+8801744444444' },
+    update: {},
+    create: {
+      phone: '+8801744444444',
+      name: 'Kamrul Hasan (কামরুল হাসান)',
+      email: 'kamrul@example.com',
+      role: 'seller',
+      city: 'Dhaka',
+      area: 'Bangla Bazar',
+      is_phone_verified: true,
+      otp_code: hashedOtp,
+    },
+  });
+
   const buyer1 = await prisma.user.upsert({
     where: { phone: '+8801733333333' },
     update: {},
@@ -81,13 +96,16 @@ async function main() {
 
   console.log('✅ Users seeded');
 
-  // 2. Seed Shops
-  for (const s of SHOPS_SEED) {
+  // 2. Seed Shops (each shop owned by a distinct seller)
+  const shopSellers = [seller1, seller2, seller3];
+  for (let i = 0; i < SHOPS_SEED.length; i++) {
+    const s = SHOPS_SEED[i];
+    const seller = shopSellers[i] || seller1;
     await prisma.shop.upsert({
       where: { slug: s.slug },
       update: {},
       create: {
-        user_id: seller1.id,
+        user_id: seller.id,
         name: s.name,
         slug: s.slug,
         address: s.address,
@@ -123,13 +141,16 @@ async function main() {
   // 4. Seed Authors
   const authorRecords: any[] = [];
   for (const a of AUTHORS_SEED) {
-    const rec = await prisma.author.create({
-      data: {
-        name_en: a.name_en,
-        name_bn: a.name_bn,
-        aliases: a.aliases,
-      },
-    });
+    let rec = await prisma.author.findFirst({ where: { name_en: a.name_en } });
+    if (!rec) {
+      rec = await prisma.author.create({
+        data: {
+          name_en: a.name_en,
+          name_bn: a.name_bn,
+          aliases: a.aliases,
+        },
+      });
+    }
     authorRecords.push(rec);
   }
   console.log('✅ Authors seeded');
@@ -137,66 +158,73 @@ async function main() {
   // 5. Seed Publishers
   const publisherRecords: any[] = [];
   for (const p of PUBLISHERS_SEED) {
-    const pub = await prisma.publisher.create({
-      data: {
-        name_en: p.name_en,
-        name_bn: p.name_bn,
-      },
-    });
+    let pub = await prisma.publisher.findFirst({ where: { name_en: p.name_en } });
+    if (!pub) {
+      pub = await prisma.publisher.create({
+        data: {
+          name_en: p.name_en,
+          name_bn: p.name_bn,
+        },
+      });
+    }
     publisherRecords.push(pub);
   }
   console.log('✅ Publishers seeded');
 
   // 6. Seed Books
-  const books = generate160Books();
-  for (let i = 0; i < books.length; i++) {
-    const b = books[i];
-    const author = authorRecords[b.author_index] || authorRecords[0];
-    const publisher = publisherRecords[b.publisher_index] || publisherRecords[0];
-    const seller = i % 2 === 0 ? seller1 : seller2;
+  const existingBookCount = await prisma.book.count();
+  if (existingBookCount === 0) {
+    const books = generate160Books();
+    for (let i = 0; i < books.length; i++) {
+      const b = books[i];
+      const author = authorRecords[b.author_index] || authorRecords[0];
+      const publisher = publisherRecords[b.publisher_index] || publisherRecords[0];
+      const seller = i % 2 === 0 ? seller1 : seller2;
 
-    const book = await prisma.book.create({
-      data: {
-        seller_id: seller.id,
-        title_en: b.title_en,
-        title_bn: b.title_bn,
-        author_id: author.id,
-        publisher_id: publisher.id,
-        description: b.description,
-        condition: b.condition,
-        language: b.language,
-        price: b.price,
-        original_price: b.original_price,
-        edition: b.edition,
-        publication_year: b.publication_year,
-        is_rare: b.is_rare || false,
-        is_featured: b.is_featured || false,
-        stock_count: b.stock_count,
-        weight_bucket: b.weight_bucket,
-        images: {
-          create: b.images.map((url, imgIdx) => ({
-            url,
-            sort_order: imgIdx,
-            is_primary: imgIdx === 0,
-          })),
-        },
-      },
-    });
-
-    for (const cSlug of b.category_slugs) {
-      const catId = categoryMap.get(cSlug);
-      if (catId) {
-        await prisma.bookCategory.create({
-          data: {
-            book_id: book.id,
-            category_id: catId,
+      const book = await prisma.book.create({
+        data: {
+          seller_id: seller.id,
+          title_en: b.title_en,
+          title_bn: b.title_bn,
+          author_id: author.id,
+          publisher_id: publisher.id,
+          description: b.description,
+          condition: b.condition,
+          language: b.language,
+          price: b.price,
+          original_price: b.original_price,
+          edition: b.edition,
+          publication_year: b.publication_year,
+          is_rare: b.is_rare || false,
+          is_featured: b.is_featured || false,
+          stock_count: b.stock_count,
+          weight_bucket: b.weight_bucket,
+          images: {
+            create: b.images.map((url, imgIdx) => ({
+              url,
+              sort_order: imgIdx,
+              is_primary: imgIdx === 0,
+            })),
           },
-        });
+        },
+      });
+
+      for (const cSlug of b.category_slugs) {
+        const catId = categoryMap.get(cSlug);
+        if (catId) {
+          await prisma.bookCategory.create({
+            data: {
+              book_id: book.id,
+              category_id: catId,
+            },
+          });
+        }
       }
     }
+    console.log(`✅ ${books.length} Books seeded successfully!`);
+  } else {
+    console.log(`ℹ️ Books already seeded (${existingBookCount} books exist).`);
   }
-
-  console.log(`✅ ${books.length} Books seeded successfully!`);
 }
 
 main()
