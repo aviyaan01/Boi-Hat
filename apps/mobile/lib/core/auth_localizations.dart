@@ -59,6 +59,10 @@ class AuthLocalizations {
       isBangla ? 'যাচাই করা হচ্ছে...' : 'Checking availability...';
   static String get usernameTaken =>
       isBangla ? 'ইউজারনেমটি আগে থেকেই নেওয়া' : 'Username already taken';
+  static String get usernameInconclusive =>
+      isBangla ? 'যাচাই করা যায়নি, আবার চেষ্টা করুন' : 'Could not verify, please try again';
+  static String get retryCheck =>
+      isBangla ? 'আবার চেষ্টা করুন' : 'Retry';
   static String get suggestionsLabel =>
       isBangla ? 'পরামর্শ:' : 'Suggestions:';
 

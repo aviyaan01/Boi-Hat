@@ -70,9 +70,18 @@ class AuthProvider extends ChangeNotifier {
       if (res is Map<String, dynamic>) {
         return res;
       }
-      return {'available': false, 'message': 'অজানা উত্তর'};
+      return {
+        'available': null,
+        'inconclusive': true,
+        'message': AuthLocalizations.usernameInconclusive,
+      };
     } catch (e) {
-      return {'available': false, 'message': AuthLocalizations.mapError(e)};
+      return {
+        'available': null,
+        'inconclusive': true,
+        'message': AuthLocalizations.usernameInconclusive,
+        'error': e.toString(),
+      };
     }
   }
 

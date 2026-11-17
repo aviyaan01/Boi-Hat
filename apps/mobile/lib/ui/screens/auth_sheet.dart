@@ -48,6 +48,7 @@ class _AuthSheetState extends State<AuthSheet> {
   Timer? _debounceTimer;
   bool _isCheckingUsername = false;
   bool? _usernameAvailable;
+  bool _usernameInconclusive = false;
   String? _usernameMessage;
   List<String> _usernameSuggestions = [];
 
@@ -110,8 +111,36 @@ class _AuthSheetState extends State<AuthSheet> {
   }
 
   // ==========================================================================
-  // Username Live Availability Check (500ms Debounce)
+  // Username Live Availability Check (500ms Debounce & Retry Support)
   // ==========================================================================
+  Future<void> _runUsernameCheck(String username) async {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final res = await auth.checkUsernameAvailable(username);
+    if (!mounted) return;
+
+    // Discard result if user has already modified the input in the meantime
+    if (_usernameController.text.trim().toLowerCase() != username) return;
+
+    setState(() {
+      _isCheckingUsername = false;
+      if (res['inconclusive'] == true || res['available'] == null) {
+        _usernameAvailable = null;
+        _usernameInconclusive = true;
+        _usernameMessage = res['message']?.toString() ?? AuthLocalizations.usernameInconclusive;
+        _usernameSuggestions = [];
+      } else {
+        _usernameInconclusive = false;
+        _usernameAvailable = res['available'] == true;
+        _usernameMessage = res['message']?.toString();
+        if (res['suggestions'] != null && res['suggestions'] is List) {
+          _usernameSuggestions = List<String>.from(res['suggestions']);
+        } else {
+          _usernameSuggestions = [];
+        }
+      }
+    });
+  }
+
   void _onUsernameChanged(String value) {
     _debounceTimer?.cancel();
     final lower = value.trim().toLowerCase();
@@ -119,6 +148,7 @@ class _AuthSheetState extends State<AuthSheet> {
     // Reset availability state
     setState(() {
       _usernameAvailable = null;
+      _usernameInconclusive = false;
       _usernameMessage = null;
       _usernameSuggestions = [];
     });
@@ -127,6 +157,7 @@ class _AuthSheetState extends State<AuthSheet> {
     if (validationErr != null) {
       setState(() {
         _usernameAvailable = false;
+        _usernameInconclusive = false;
         _usernameMessage = validationErr;
       });
       return;
@@ -134,21 +165,36 @@ class _AuthSheetState extends State<AuthSheet> {
 
     setState(() => _isCheckingUsername = true);
 
-    _debounceTimer = Timer(const Duration(milliseconds: 500), () async {
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
       if (!mounted) return;
-      final auth = Provider.of<AuthProvider>(context, listen: false);
-      final res = await auth.checkUsernameAvailable(lower);
-      if (!mounted) return;
-
-      setState(() {
-        _isCheckingUsername = false;
-        _usernameAvailable = res['available'] == true;
-        _usernameMessage = res['message']?.toString();
-        if (res['suggestions'] != null && res['suggestions'] is List) {
-          _usernameSuggestions = List<String>.from(res['suggestions']);
-        }
-      });
+      _runUsernameCheck(lower);
     });
+  }
+
+  void _retryUsernameCheck() {
+    _debounceTimer?.cancel();
+    final lower = _usernameController.text.trim().toLowerCase();
+    if (lower.isEmpty) return;
+
+    final validationErr = AuthValidators.validateUsername(lower);
+    if (validationErr != null) {
+      setState(() {
+        _usernameAvailable = false;
+        _usernameInconclusive = false;
+        _usernameMessage = validationErr;
+      });
+      return;
+    }
+
+    setState(() {
+      _isCheckingUsername = true;
+      _usernameInconclusive = false;
+      _usernameAvailable = null;
+      _usernameMessage = null;
+      _usernameSuggestions = [];
+    });
+
+    _runUsernameCheck(lower);
   }
 
   // ==========================================================================
@@ -167,7 +213,10 @@ class _AuthSheetState extends State<AuthSheet> {
       final usernameErr = AuthValidators.validateUsername(_usernameController.text);
       final emailErr = AuthValidators.validateEmail(_emailController.text);
 
-      if (nameErr != null || usernameErr != null || emailErr != null || _usernameAvailable != true) {
+      if (nameErr != null ||
+          usernameErr != null ||
+          emailErr != null ||
+          (_usernameAvailable != true && !_usernameInconclusive)) {
         setState(() => _localError = nameErr ?? usernameErr ?? emailErr ?? _usernameMessage);
         return;
       }
@@ -351,7 +400,7 @@ class _AuthSheetState extends State<AuthSheet> {
         ? _identifierController.text.trim().isNotEmpty
         : (AuthValidators.validateName(_nameController.text) == null &&
             AuthValidators.validateUsername(_usernameController.text) == null &&
-            _usernameAvailable == true &&
+            (_usernameAvailable == true || _usernameInconclusive == true) &&
             AuthValidators.validateEmail(_emailController.text) == null);
 
     return Container(
@@ -570,11 +619,17 @@ class _AuthSheetState extends State<AuthSheet> {
                               child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primary),
                             ),
                           )
-                        : _usernameAvailable == true
-                            ? const Icon(Icons.check_circle_rounded, color: Colors.green)
-                            : _usernameAvailable == false
-                                ? const Icon(Icons.cancel_rounded, color: Colors.red)
-                                : null,
+                        : _usernameInconclusive
+                            ? IconButton(
+                                icon: const Icon(Icons.warning_amber_rounded, color: Color(0xFFD97706)),
+                                tooltip: AuthLocalizations.retryCheck,
+                                onPressed: _retryUsernameCheck,
+                              )
+                            : _usernameAvailable == true
+                                ? const Icon(Icons.check_circle_rounded, color: Colors.green)
+                                : _usernameAvailable == false
+                                    ? const Icon(Icons.cancel_rounded, color: Colors.red)
+                                    : null,
                   ),
                   onChanged: _onUsernameChanged,
                 ),
@@ -583,13 +638,52 @@ class _AuthSheetState extends State<AuthSheet> {
                 if (_usernameMessage != null && !_isCheckingUsername) ...[
                   Padding(
                     padding: const EdgeInsets.only(top: 4, left: 12, right: 12),
-                    child: Text(
-                      _usernameMessage!,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: _usernameAvailable == true ? Colors.green.shade700 : Colors.red.shade700,
-                        fontWeight: FontWeight.w500,
-                      ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        if (_usernameInconclusive) ...[
+                          const Icon(Icons.warning_amber_rounded, size: 14, color: Color(0xFFD97706)),
+                          const SizedBox(width: 4),
+                        ],
+                        Expanded(
+                          child: Text(
+                            _usernameMessage!,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: _usernameInconclusive
+                                  ? const Color(0xFFB45309)
+                                  : _usernameAvailable == true
+                                      ? Colors.green.shade700
+                                      : Colors.red.shade700,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        if (_usernameInconclusive) ...[
+                          InkWell(
+                            onTap: _retryUsernameCheck,
+                            borderRadius: BorderRadius.circular(4),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.refresh, size: 13, color: AppTheme.primary),
+                                  const SizedBox(width: 2),
+                                  Text(
+                                    AuthLocalizations.retryCheck,
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.primary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ],
