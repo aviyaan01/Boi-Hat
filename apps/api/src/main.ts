@@ -9,6 +9,9 @@ async function bootstrap() {
   const logger = new Logger('BoiHatAPI');
   const app = await NestFactory.create(AppModule);
 
+  // Trust proxy for real client IP extraction behind reverse proxies/CDNs
+  app.getHttpAdapter().getInstance().set('trust proxy', true);
+
   app.use(cookieParser());
 
   // CORS configuration

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -216,11 +217,12 @@ class _WalletScreenState extends State<WalletScreen> {
       appBar: AppBar(
         title: const Text('আমার ওয়ালেট ও প্রোফাইল'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.settings_ethernet, color: AppTheme.primary),
-            tooltip: 'সার্ভার আইপি কনফিগারেশন',
-            onPressed: () => ServerConfigDialog.show(context),
-          ),
+          if (kDebugMode)
+            IconButton(
+              icon: const Icon(Icons.settings_ethernet, color: AppTheme.primary),
+              tooltip: 'সার্ভার আইপি কনফিগারেশন',
+              onPressed: () => ServerConfigDialog.show(context),
+            ),
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.red),
             tooltip: 'লগআউট',

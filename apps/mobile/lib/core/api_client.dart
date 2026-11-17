@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -9,10 +11,15 @@ class ApiClient {
   static const String _envBaseUrl = String.fromEnvironment('API_BASE_URL');
 
   // Current detected local machine Wi-Fi IP
-  static const String _defaultLocalIp = '192.168.1.104';
+  static const String _defaultLocalIp = '192.168.1.107';
   static const int _defaultPort = 4000;
 
   static String? _customBaseUrl;
+
+  // Secure storage instance for Android and iOS
+  static const _secureStorage = FlutterSecureStorage(
+    aOptions: AndroidOptions(resetOnError: true),
+  );
 
   static Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
@@ -68,19 +75,55 @@ class ApiClient {
     }
   }
 
+  // --- Secure Token Storage ---
   static Future<String?> getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('boi_hat_token');
+    try {
+      return await _secureStorage.read(key: 'boi_hat_token');
+    } catch (_) {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString('boi_hat_token');
+    }
   }
 
   static Future<void> setToken(String token) async {
+    try {
+      await _secureStorage.write(key: 'boi_hat_token', value: token);
+    } catch (_) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('boi_hat_token', token);
+    }
+  }
+
+  static Future<String?> getRefreshToken() async {
+    try {
+      return await _secureStorage.read(key: 'boi_hat_refresh_token');
+    } catch (_) {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString('boi_hat_refresh_token');
+    }
+  }
+
+  static Future<void> setRefreshToken(String token) async {
+    try {
+      await _secureStorage.write(key: 'boi_hat_refresh_token', value: token);
+    } catch (_) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('boi_hat_refresh_token', token);
+    }
+  }
+
+  static Future<void> removeTokens() async {
+    try {
+      await _secureStorage.delete(key: 'boi_hat_token');
+      await _secureStorage.delete(key: 'boi_hat_refresh_token');
+    } catch (_) {}
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('boi_hat_token', token);
+    await prefs.remove('boi_hat_token');
+    await prefs.remove('boi_hat_refresh_token');
   }
 
   static Future<void> removeToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('boi_hat_token');
+    await removeTokens();
   }
 
   static Future<Map<String, String>> _headers() async {
@@ -99,6 +142,8 @@ class ApiClient {
       return _handleResponse(response);
     } on SocketException catch (e) {
       throw Exception('সার্ভারে সংযোগ করা সম্ভব হয়নি ($baseUrl)। ওয়াইফাই ও সার্ভার আইপি চেক করুন। (${e.message})');
+    } on TimeoutException {
+      throw Exception('সার্ভার থেকে উত্তর আসতে বিলম্ব হচ্ছে। ইন্টারনেট কানেকশন চেক করুন।');
     } on http.ClientException catch (e) {
       throw Exception('কানেকশন ত্রুটি: $baseUrl এ সংযোগ পাওয়া যায়নি। (${e.message})');
     }
@@ -117,6 +162,8 @@ class ApiClient {
       return _handleResponse(response);
     } on SocketException catch (e) {
       throw Exception('সার্ভারে সংযোগ করা সম্ভব হয়নি ($baseUrl)। ওয়াইফাই ও সার্ভার আইপি চেক করুন। (${e.message})');
+    } on TimeoutException {
+      throw Exception('সার্ভার থেকে উত্তর আসতে বিলম্ব হচ্ছে। ইন্টারনেট কানেকশন চেক করুন।');
     } on http.ClientException catch (e) {
       throw Exception('কানেকশন ত্রুটি: $baseUrl এ সংযোগ পাওয়া যায়নি। (${e.message})');
     }
@@ -135,6 +182,8 @@ class ApiClient {
       return _handleResponse(response);
     } on SocketException catch (e) {
       throw Exception('সার্ভারে সংযোগ করা সম্ভব হয়নি ($baseUrl)। ওয়াইফাই ও সার্ভার আইপি চেক করুন। (${e.message})');
+    } on TimeoutException {
+      throw Exception('সার্ভার থেকে উত্তর আসতে বিলম্ব হচ্ছে। ইন্টারনেট কানেকশন চেক করুন।');
     } on http.ClientException catch (e) {
       throw Exception('কানেকশন ত্রুটি: $baseUrl এ সংযোগ পাওয়া যায়নি। (${e.message})');
     }
@@ -151,10 +200,16 @@ class ApiClient {
       String message = 'API Error: ${response.statusCode}';
       try {
         final errJson = jsonDecode(utf8.decode(response.bodyBytes));
-        if (errJson is Map && errJson['error'] != null) {
-          message = errJson['error']['message'] ?? message;
-        } else if (errJson is Map && errJson['message'] != null) {
-          message = errJson['message'];
+        if (errJson is Map) {
+          if (errJson['error'] != null && errJson['error'] is Map) {
+            message = errJson['error']['message'] ?? message;
+          } else if (errJson['message'] != null) {
+            if (errJson['message'] is List) {
+              message = (errJson['message'] as List).join(', ');
+            } else {
+              message = errJson['message'].toString();
+            }
+          }
         }
       } catch (_) {}
       throw Exception(message);

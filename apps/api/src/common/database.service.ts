@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, BadRequestException, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
 import {
   Role,
@@ -93,6 +93,26 @@ export class DatabaseService implements OnModuleInit {
   private walletTransactions: any[] = [];
   private reviews: any[] = [];
   private courierParcels: any[] = [];
+  private emailVerifications: any[] = [];
+  private authRateLimits: any[] = [];
+
+  // Mutex lock to enforce strict atomicity and race-condition safety
+  private lockPromise: Promise<void> = Promise.resolve();
+
+  private async acquireLock<T>(fn: () => Promise<T>): Promise<T> {
+    let release: () => void = () => {};
+    const waitPromise = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const currentLock = this.lockPromise;
+    this.lockPromise = currentLock.then(() => waitPromise);
+    await currentLock;
+    try {
+      return await fn();
+    } finally {
+      release();
+    }
+  }
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -107,6 +127,7 @@ export class DatabaseService implements OnModuleInit {
       id: 'admin-user-uuid-1',
       phone: '+8801700000000',
       name: 'Boi-Hat Admin (এডমিন)',
+      username: 'boihat_admin',
       email: 'admin@boihat.com',
       role: Role.ADMIN,
       avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80',
@@ -115,6 +136,8 @@ export class DatabaseService implements OnModuleInit {
       rating_avg: 5.0,
       rating_count: 50,
       is_phone_verified: true,
+      email_verified_at: new Date().toISOString(),
+      status: 'active',
       is_banned: false,
       created_at: new Date().toISOString(),
     };
@@ -123,6 +146,7 @@ export class DatabaseService implements OnModuleInit {
       id: 'seller-user-uuid-1',
       phone: '+8801711111111',
       name: 'Tanvir Ahmed (তানভীর আহমেদ)',
+      username: 'tanvir_seller',
       email: 'tanvir@example.com',
       role: Role.SELLER,
       avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&q=80',
@@ -131,6 +155,8 @@ export class DatabaseService implements OnModuleInit {
       rating_avg: 4.8,
       rating_count: 34,
       is_phone_verified: true,
+      email_verified_at: new Date().toISOString(),
+      status: 'active',
       is_banned: false,
       created_at: new Date().toISOString(),
     };
@@ -139,6 +165,7 @@ export class DatabaseService implements OnModuleInit {
       id: 'seller-user-uuid-2',
       phone: '+8801722222222',
       name: 'Farhana Rahman (ফারহানা রহমান)',
+      username: 'farhana_seller',
       email: 'farhana@example.com',
       role: Role.SELLER,
       avatar_url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&q=80',
@@ -147,6 +174,8 @@ export class DatabaseService implements OnModuleInit {
       rating_avg: 4.9,
       rating_count: 22,
       is_phone_verified: true,
+      email_verified_at: new Date().toISOString(),
+      status: 'active',
       is_banned: false,
       created_at: new Date().toISOString(),
     };
@@ -155,6 +184,7 @@ export class DatabaseService implements OnModuleInit {
       id: 'buyer-user-uuid-1',
       phone: '+8801733333333',
       name: 'Sabbir Hossain (সাব্বির হোসেন)',
+      username: 'sabbir_buyer',
       email: 'sabbir@example.com',
       role: Role.BUYER,
       avatar_url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80',
@@ -163,6 +193,8 @@ export class DatabaseService implements OnModuleInit {
       rating_avg: 5.0,
       rating_count: 8,
       is_phone_verified: true,
+      email_verified_at: new Date().toISOString(),
+      status: 'active',
       is_banned: false,
       created_at: new Date().toISOString(),
     };
@@ -515,6 +547,374 @@ export class DatabaseService implements OnModuleInit {
       } catch (e) {}
     }
     return this.users.find((u) => u.phone === phone) || null;
+  }
+
+  async getUserByEmail(email: string) {
+    const cleanEmail = email.trim().toLowerCase();
+    if (this.prisma.isConnected) {
+      try {
+        return await this.prisma.user.findFirst({
+          where: { email: { equals: cleanEmail, mode: 'insensitive' } },
+        });
+      } catch (e) {}
+    }
+    return this.users.find((u) => u.email && u.email.toLowerCase() === cleanEmail) || null;
+  }
+
+  async getUserByUsername(username: string) {
+    const cleanUsername = username.trim().toLowerCase();
+    if (this.prisma.isConnected) {
+      try {
+        return await this.prisma.user.findFirst({
+          where: { username: { equals: cleanUsername, mode: 'insensitive' } },
+        });
+      } catch (e) {}
+    }
+    return this.users.find((u) => u.username && u.username.toLowerCase() === cleanUsername) || null;
+  }
+
+  async getUserByIdentifier(identifier: string) {
+    const clean = identifier.trim().toLowerCase();
+    if (this.prisma.isConnected) {
+      try {
+        return await this.prisma.user.findFirst({
+          where: {
+            OR: [
+              { email: { equals: clean, mode: 'insensitive' } },
+              { username: { equals: clean, mode: 'insensitive' } },
+            ],
+          },
+        });
+      } catch (e) {}
+    }
+    return (
+      this.users.find(
+        (u) =>
+          (u.email && u.email.toLowerCase() === clean) ||
+          (u.username && u.username.toLowerCase() === clean),
+      ) || null
+    );
+  }
+
+  async isUsernameTaken(username: string): Promise<boolean> {
+    const lower = username.trim().toLowerCase();
+    const existing = await this.getUserByUsername(lower);
+    if (existing) return true;
+
+    // Also check pending unexpired, unconsumed signup verifications
+    const now = new Date();
+    const pending = this.emailVerifications.find(
+      (v) =>
+        v.purpose === 'signup' &&
+        v.consumed_at == null &&
+        new Date(v.expires_at) > now &&
+        v.pending_payload?.username?.toLowerCase() === lower,
+    );
+    return !!pending;
+  }
+
+  async isEmailTaken(email: string): Promise<boolean> {
+    const lower = email.trim().toLowerCase();
+    const existing = await this.getUserByEmail(lower);
+    return !!existing;
+  }
+
+  async createUserFromVerification(data: { name: string; username: string; email: string }) {
+    return this.acquireLock(async () => {
+      const lowerUsername = data.username.trim().toLowerCase();
+      const lowerEmail = data.email.trim().toLowerCase();
+      const trimmedName = data.name.trim().replace(/\s+/g, ' ');
+
+      // In-memory uniqueness check within atomic lock
+      const userWithUsername = this.users.find((u) => u.username && u.username.toLowerCase() === lowerUsername);
+      if (userWithUsername) {
+        throw new ConflictException('ইউজারনেমটি আগে থেকেই নেওয়া (Username already taken)');
+      }
+
+      const userWithEmail = this.users.find((u) => u.email && u.email.toLowerCase() === lowerEmail);
+      if (userWithEmail) {
+        throw new ConflictException('ইমেইলটি আগে থেকেই নিবন্ধিত (Email already registered)');
+      }
+
+      if (this.prisma.isConnected) {
+        try {
+          return await this.prisma.user.create({
+            data: {
+              id: uuidv4(),
+              name: trimmedName,
+              username: lowerUsername,
+              email: lowerEmail,
+              role: Role.BUYER,
+              status: 'active',
+              avatar_url: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(trimmedName)}`,
+              city: 'Dhaka',
+              rating_avg: 0.0,
+              rating_count: 0,
+              is_phone_verified: false,
+              email_verified_at: new Date(),
+              is_banned: false,
+              token_version: 1,
+            } as any,
+          });
+        } catch (err: any) {
+          if (err.code === 'P2002') {
+            const targets = Array.isArray(err.meta?.target) ? err.meta.target.join(', ') : 'username/email';
+            throw new ConflictException(`Account collision: ${targets} already taken`);
+          }
+          throw err;
+        }
+      }
+
+      const newUser = {
+        id: uuidv4(),
+        phone: null,
+        name: trimmedName,
+        username: lowerUsername,
+        email: lowerEmail,
+        role: Role.BUYER,
+        status: 'active',
+        avatar_url: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(trimmedName)}`,
+        city: 'Dhaka',
+        area: null,
+        rating_avg: 0.0,
+        rating_count: 0,
+        is_phone_verified: false,
+        email_verified_at: new Date().toISOString(),
+        is_banned: false,
+        token_version: 1,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      this.users.push(newUser);
+      return newUser;
+    });
+  }
+
+  // --- Email Verification Store Methods ---
+  async createEmailVerification(data: {
+    email: string;
+    codeHash: string;
+    purpose: 'signup' | 'login';
+    pendingPayload?: any;
+    expiresAt: Date;
+  }) {
+    const lowerEmail = data.email.trim().toLowerCase();
+    const id = uuidv4();
+    const record = {
+      id,
+      email: lowerEmail,
+      code_hash: data.codeHash,
+      purpose: data.purpose,
+      pending_payload: data.pendingPayload || null,
+      expires_at: data.expiresAt.toISOString(),
+      attempts: 0,
+      consumed_at: null,
+      created_at: new Date().toISOString(),
+    };
+
+    // Invalidate/delete any previous active verification for this email & purpose
+    this.emailVerifications = this.emailVerifications.filter(
+      (v) => !(v.email.toLowerCase() === lowerEmail && v.purpose === data.purpose && v.consumed_at == null),
+    );
+
+    if (this.prisma.isConnected) {
+      try {
+        await (this.prisma as any).emailVerification.deleteMany({
+          where: { email: lowerEmail, purpose: data.purpose, consumed_at: null },
+        });
+        await (this.prisma as any).emailVerification.create({
+          data: {
+            ...record,
+            expires_at: data.expiresAt,
+            created_at: new Date(),
+          },
+        });
+      } catch (e) {}
+    }
+
+    this.emailVerifications.push(record);
+    return record;
+  }
+
+  async findActiveVerification(email: string, purpose: 'signup' | 'login') {
+    return this.findLatestVerification(email, purpose);
+  }
+
+  async findLatestVerification(email: string, purpose: 'signup' | 'login') {
+    const lowerEmail = email.trim().toLowerCase();
+
+    if (this.prisma.isConnected) {
+      try {
+        const found = await (this.prisma as any).emailVerification.findFirst({
+          where: {
+            email: lowerEmail,
+            purpose,
+            consumed_at: null,
+          },
+          orderBy: { created_at: 'desc' },
+        });
+        if (found) return found;
+      } catch (e) {}
+    }
+
+    return (
+      this.emailVerifications
+        .filter(
+          (v) =>
+            v.email.toLowerCase() === lowerEmail &&
+            v.purpose === purpose &&
+            v.consumed_at == null,
+        )
+        .slice(-1)[0] || null
+    );
+  }
+
+  async incrementVerificationAttempts(id: string) {
+    if (this.prisma.isConnected) {
+      try {
+        await (this.prisma as any).emailVerification.update({
+          where: { id },
+          data: { attempts: { increment: 1 } },
+        });
+      } catch (e) {}
+    }
+    const rec = this.emailVerifications.find((v) => v.id === id);
+    if (rec) {
+      rec.attempts = (rec.attempts || 0) + 1;
+      return rec.attempts;
+    }
+    return 1;
+  }
+
+  async consumeVerification(id: string) {
+    const consumedAt = new Date().toISOString();
+    if (this.prisma.isConnected) {
+      try {
+        await (this.prisma as any).emailVerification.update({
+          where: { id },
+          data: { consumed_at: new Date() },
+        });
+      } catch (e) {}
+    }
+    const rec = this.emailVerifications.find((v) => v.id === id);
+    if (rec) {
+      rec.consumed_at = consumedAt;
+    }
+  }
+
+  // --- Auth Rate Limiting (stored in DB) ---
+  async checkAndIncrementRateLimit(
+    key: string,
+    maxCount: number,
+    windowSeconds: number,
+    cooldownSeconds = 0,
+  ): Promise<{ allowed: boolean; retryAfterSeconds: number; currentCount: number }> {
+    const now = new Date();
+    const cleanKey = key.trim().toLowerCase();
+
+    let record: any = null;
+    if (this.prisma.isConnected) {
+      try {
+        record = await (this.prisma as any).authRateLimit.findUnique({ where: { key: cleanKey } });
+      } catch (e) {}
+    }
+    if (!record) {
+      record = this.authRateLimits.find((r) => r.key === cleanKey);
+    }
+
+    if (record) {
+      const lastRequest = new Date(record.last_request_at);
+      const expiresAt = new Date(record.expires_at);
+
+      // 1. Check cooldown constraint if applicable
+      if (cooldownSeconds > 0) {
+        const cooldownRemaining = Math.ceil((lastRequest.getTime() + cooldownSeconds * 1000 - now.getTime()) / 1000);
+        if (cooldownRemaining > 0) {
+          return { allowed: false, retryAfterSeconds: cooldownRemaining, currentCount: record.count };
+        }
+      }
+
+      // 2. Check window expiration
+      if (now < expiresAt) {
+        if (record.count >= maxCount) {
+          const windowRemaining = Math.ceil((expiresAt.getTime() - now.getTime()) / 1000);
+          return { allowed: false, retryAfterSeconds: windowRemaining, currentCount: record.count };
+        }
+        record.count += 1;
+        record.last_request_at = now.toISOString();
+      } else {
+        // Window expired: start fresh window
+        record.count = 1;
+        record.window_start = now.toISOString();
+        record.expires_at = new Date(now.getTime() + windowSeconds * 1000).toISOString();
+        record.last_request_at = now.toISOString();
+      }
+
+      if (this.prisma.isConnected) {
+        try {
+          await (this.prisma as any).authRateLimit.update({
+            where: { key: cleanKey },
+            data: {
+              count: record.count,
+              window_start: new Date(record.window_start),
+              expires_at: new Date(record.expires_at),
+              last_request_at: new Date(record.last_request_at),
+            },
+          });
+        } catch (e) {}
+      }
+
+      return { allowed: true, retryAfterSeconds: 0, currentCount: record.count };
+    }
+
+    // New rate limit entry
+    const newRecord = {
+      id: uuidv4(),
+      key: cleanKey,
+      count: 1,
+      window_start: now.toISOString(),
+      expires_at: new Date(now.getTime() + windowSeconds * 1000).toISOString(),
+      last_request_at: now.toISOString(),
+    };
+
+    if (this.prisma.isConnected) {
+      try {
+        await (this.prisma as any).authRateLimit.create({
+          data: {
+            id: newRecord.id,
+            key: cleanKey,
+            count: 1,
+            window_start: now,
+            expires_at: new Date(newRecord.expires_at),
+            last_request_at: now,
+          },
+        });
+      } catch (e) {}
+    }
+
+    this.authRateLimits.push(newRecord);
+    return { allowed: true, retryAfterSeconds: 0, currentCount: 1 };
+  }
+
+  async cleanupExpiredVerificationsAndRateLimits(): Promise<number> {
+    const now = new Date();
+    const initialVerifications = this.emailVerifications.length;
+    this.emailVerifications = this.emailVerifications.filter((v) => new Date(v.expires_at) > now);
+    this.authRateLimits = this.authRateLimits.filter((r) => new Date(r.expires_at) > now);
+
+    if (this.prisma.isConnected) {
+      try {
+        await (this.prisma as any).emailVerification.deleteMany({
+          where: { expires_at: { lt: now } },
+        });
+        await (this.prisma as any).authRateLimit.deleteMany({
+          where: { expires_at: { lt: now } },
+        });
+      } catch (e) {}
+    }
+
+    return initialVerifications - this.emailVerifications.length;
   }
 
   async createUser(data: { phone: string; name?: string; role?: Role; city?: string }) {

@@ -126,18 +126,66 @@ export interface ApiResponse<T = any> {
 // User & Shop Types
 export interface UserProfile {
   id: string;
-  phone: string;
   name: string | null;
+  username: string | null;
   email: string | null;
+  phone?: string | null;
   role: Role;
   avatar_url: string | null;
   city: string | null;
   area: string | null;
   rating_avg: number;
   rating_count: number;
-  is_phone_verified: boolean;
+  is_phone_verified?: boolean;
+  email_verified_at?: string | null;
+  status?: string;
   is_banned: boolean;
   created_at: string;
+}
+
+export interface UsernameAvailabilityQuery {
+  u: string;
+}
+
+export interface UsernameAvailabilityResponse {
+  available: boolean;
+  username: string;
+  suggestions?: string[];
+  message?: string;
+}
+
+export interface SignupRequestCodeDto {
+  name: string;
+  username: string;
+  email: string;
+}
+
+export interface SignupVerifyCodeDto {
+  email: string;
+  code: string;
+}
+
+export interface LoginRequestCodeDto {
+  identifier: string;
+}
+
+export interface LoginVerifyCodeDto {
+  identifier: string;
+  code: string;
+}
+
+export interface AuthCodeResponse {
+  message: string;
+  expires_in_seconds: number;
+  resend_cooldown_seconds: number;
+  dev_code?: string;
+}
+
+export interface AuthSessionResponse {
+  user: UserProfile;
+  accessToken: string;
+  refreshToken: string;
+  isNewUser?: boolean;
 }
 
 export interface PublicSellerProfile {

@@ -123,16 +123,19 @@ enum AuthorRequestStatus {
 
 model User {
   id                String    @id @default(uuid())
-  phone             String    @unique
+  phone             String?   @unique
   name              String?
-  email             String?
+  username          String?   @unique
+  email             String?   @unique
   role              Role      @default(buyer)
+  status            String    @default("active")
   avatar_url        String?
   city              String?   @default("Dhaka")
   area              String?
   rating_avg        Decimal   @default(0.0) @db.Decimal(3, 2)
   rating_count      Int       @default(0)
   is_phone_verified Boolean   @default(false)
+  email_verified_at DateTime?
   is_banned         Boolean   @default(false)
   otp_code          String?
   otp_expires_at    DateTime?
@@ -159,6 +162,35 @@ model User {
   wallet            SellerWallet?
 
   @@map("users")
+}
+
+model EmailVerification {
+  id              String    @id @default(uuid())
+  email           String
+  code_hash       String
+  purpose         String
+  pending_payload Json?
+  expires_at      DateTime
+  attempts        Int       @default(0)
+  consumed_at     DateTime?
+  created_at      DateTime  @default(now())
+
+  @@index([email, purpose])
+  @@index([expires_at])
+  @@map("email_verifications")
+}
+
+model AuthRateLimit {
+  id              String    @id @default(uuid())
+  key             String    @unique
+  count           Int       @default(1)
+  window_start    DateTime  @default(now())
+  expires_at      DateTime
+  last_request_at DateTime  @default(now())
+
+  @@index([key])
+  @@index([expires_at])
+  @@map("auth_rate_limits")
 }
 
 model Shop {

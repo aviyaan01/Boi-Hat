@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/app_theme.dart';
@@ -60,11 +61,12 @@ class HomeScreen extends StatelessWidget {
               ],
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.settings_ethernet, color: AppTheme.primary, size: 20),
-            tooltip: 'সার্ভার আইপি কনফিগারেশন',
-            onPressed: () => ServerConfigDialog.show(context),
-          ),
+          if (kDebugMode)
+            IconButton(
+              icon: const Icon(Icons.settings_ethernet, color: AppTheme.primary, size: 20),
+              tooltip: 'সার্ভার আইপি কনফিগারেশন',
+              onPressed: () => ServerConfigDialog.show(context),
+            ),
           IconButton(
             icon: Icon(
               auth.isAuthenticated ? Icons.account_circle : Icons.login,
