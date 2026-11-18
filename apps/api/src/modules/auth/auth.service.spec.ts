@@ -2,6 +2,7 @@ import { AuthService } from './auth.service';
 import { DatabaseService } from '../../common/database.service';
 import { PrismaService } from '../../common/prisma.service';
 import { EmailService } from '../email/email.service';
+import { BrevoEmailProvider } from '../email/brevo-email.provider';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -36,7 +37,8 @@ describe('AuthService (Email-Verified Account System)', () => {
       JWT_REFRESH_SECRET: 'test_refresh_secret_2026',
     });
 
-    emailService = new EmailService(configService);
+    const mockBrevo = new BrevoEmailProvider(configService);
+    emailService = new EmailService(configService, mockBrevo);
     emailService.onModuleInit();
     jest.spyOn(emailService, 'sendVerificationCode').mockResolvedValue(true);
 
@@ -358,19 +360,19 @@ describe('AuthService (Email-Verified Account System)', () => {
   // 5. Production Environment Safety
   // ==========================================================================
   describe('Production Environment Guard', () => {
-    it('should refuse to start EmailService in production if SMTP credentials are missing', () => {
+    it('should refuse to start EmailService in production if Brevo API key is missing', () => {
       process.env.NODE_ENV = 'production';
-      delete process.env.SMTP_HOST;
-      delete process.env.SMTP_USER;
-      delete process.env.SMTP_PASS;
+      delete process.env.BREVO_API_KEY;
 
       const prodConfig = new ConfigService({
         NODE_ENV: 'production',
+        EMAIL_PROVIDER: 'brevo',
       });
-      const prodEmailService = new EmailService(prodConfig);
+      const prodBrevo = new BrevoEmailProvider(prodConfig);
+      const prodEmailService = new EmailService(prodConfig, prodBrevo);
 
       expect(() => prodEmailService.onModuleInit()).toThrow(
-        /Production server cannot start without valid SMTP configuration/i,
+        /BREVO_API_KEY is required in production/i,
       );
 
       process.env.NODE_ENV = 'development';

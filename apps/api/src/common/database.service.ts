@@ -117,6 +117,14 @@ export class DatabaseService implements OnModuleInit {
   constructor(private readonly prisma: PrismaService) {}
 
   async onModuleInit() {
+    const isProduction = process.env.NODE_ENV === 'production';
+    if (isProduction) {
+      if (!this.prisma.isConnected) {
+        throw new Error('FATAL: DatabaseService cannot initialize in production without an active Prisma PostgreSQL connection.');
+      }
+      this.logger.log('✓ DatabaseService running in PRODUCTION mode using Prisma + PostgreSQL ONLY. In-memory demo seeds disabled.');
+      return;
+    }
     this.initDefaultSeedData();
     this.logger.log(`Database store initialized with ${this.books.length} books, ${this.categories.length} categories, ${this.authors.length} authors.`);
   }
@@ -737,6 +745,15 @@ export class DatabaseService implements OnModuleInit {
     return record;
   }
 
+  async deleteVerificationById(id: string) {
+    this.emailVerifications = this.emailVerifications.filter((v) => v.id !== id);
+    if (this.prisma.isConnected) {
+      try {
+        await (this.prisma as any).emailVerification.deleteMany({ where: { id } });
+      } catch (e) {}
+    }
+  }
+
   async findActiveVerification(email: string, purpose: 'signup' | 'login') {
     return this.findLatestVerification(email, purpose);
   }
@@ -895,6 +912,25 @@ export class DatabaseService implements OnModuleInit {
 
     this.authRateLimits.push(newRecord);
     return { allowed: true, retryAfterSeconds: 0, currentCount: 1 };
+  }
+
+  async decrementRateLimit(key: string) {
+    const cleanKey = key.trim().toLowerCase();
+    if (this.prisma.isConnected) {
+      try {
+        const record = await (this.prisma as any).authRateLimit.findUnique({ where: { key: cleanKey } });
+        if (record && record.count > 0) {
+          await (this.prisma as any).authRateLimit.update({
+            where: { key: cleanKey },
+            data: { count: Math.max(0, record.count - 1) },
+          });
+        }
+      } catch (e) {}
+    }
+    const memRecord = this.authRateLimits.find((r) => r.key === cleanKey);
+    if (memRecord && memRecord.count > 0) {
+      memRecord.count = Math.max(0, memRecord.count - 1);
+    }
   }
 
   async cleanupExpiredVerificationsAndRateLimits(): Promise<number> {

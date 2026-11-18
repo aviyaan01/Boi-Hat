@@ -1,6 +1,7 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
+import { BrevoEmailProvider } from './brevo-email.provider';
 
 export interface IEmailService {
   sendVerificationCode(to: string, code: string, purpose: 'signup' | 'login'): Promise<boolean>;
@@ -10,46 +11,57 @@ export interface IEmailService {
 export class EmailService implements IEmailService, OnModuleInit {
   private readonly logger = new Logger(EmailService.name);
   private transporter: nodemailer.Transporter | null = null;
-  private isConfigured = false;
+  private provider: 'brevo' | 'smtp' | 'console' = 'console';
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly brevoProvider: BrevoEmailProvider,
+  ) {}
 
   onModuleInit() {
     const isProduction = (this.configService.get<string>('NODE_ENV') ?? process.env.NODE_ENV) === 'production';
-    const host = this.configService.get<string>('SMTP_HOST');
-    const port = this.configService.get<number>('SMTP_PORT', 587);
-    const user = this.configService.get<string>('SMTP_USER');
-    const pass = this.configService.get<string>('SMTP_PASS');
-    const from = this.configService.get<string>('SMTP_FROM', 'Boi-Hat <no-reply@boihat.com>');
+    const configuredProvider = (
+      this.configService.get<string>('EMAIL_PROVIDER') ??
+      process.env.EMAIL_PROVIDER ??
+      (isProduction ? 'brevo' : 'console')
+    ).toLowerCase();
 
-    if (host && user && pass) {
-      try {
+    if (configuredProvider === 'brevo') {
+      this.provider = 'brevo';
+      const brevoKey = this.configService.get<string>('BREVO_API_KEY') ?? process.env.BREVO_API_KEY;
+      if (!brevoKey && isProduction) {
+        throw new Error('CRITICAL: BREVO_API_KEY is required in production when EMAIL_PROVIDER=brevo.');
+      }
+      this.logger.log('✓ Email service configured with HTTPS Brevo API provider.');
+    } else if (configuredProvider === 'smtp') {
+      this.provider = 'smtp';
+      const host = this.configService.get<string>('SMTP_HOST') ?? process.env.SMTP_HOST;
+      const port = Number(this.configService.get<number>('SMTP_PORT', 587));
+      const user = this.configService.get<string>('SMTP_USER') ?? process.env.SMTP_USER;
+      const pass = this.configService.get<string>('SMTP_PASS') ?? process.env.SMTP_PASS;
+
+      if (host && user && pass) {
         this.transporter = nodemailer.createTransport({
           host,
-          port: Number(port),
-          secure: Number(port) === 465,
+          port,
+          secure: port === 465,
           auth: { user, pass },
         });
-        this.isConfigured = true;
-        this.logger.log(`SMTP configured successfully with host: ${host}`);
-      } catch (err) {
-        this.logger.error(`Failed to initialize SMTP transporter: ${err.message}`);
+        this.logger.log(`✓ Email service configured with SMTP transport (${host}:${port}).`);
+      } else {
         if (isProduction) {
-          throw new Error(`Production requires valid SMTP configuration! Could not initialize SMTP: ${err.message}`);
+          throw new Error('CRITICAL: SMTP_HOST, SMTP_USER, and SMTP_PASS are required when EMAIL_PROVIDER=smtp in production.');
         }
+        this.logger.warn('SMTP configuration incomplete in development. Falling back to console logging.');
+        this.provider = 'console';
       }
     } else {
-      if (isProduction) {
-        throw new Error(
-          'CRITICAL: Production server cannot start without valid SMTP configuration! Please set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, and SMTP_FROM in .env.',
-        );
-      }
-      this.logger.warn('SMTP not configured in development mode. Verification codes will be printed to server console.');
+      this.provider = 'console';
+      this.logger.log('Email service running in console mode. Verification codes will be printed to console logs.');
     }
   }
 
   async sendVerificationCode(to: string, code: string, purpose: 'signup' | 'login'): Promise<boolean> {
-    const isProduction = (this.configService.get<string>('NODE_ENV') ?? process.env.NODE_ENV) === 'production';
     const actionTextBn = purpose === 'signup' ? 'রেজিস্ট্রেশন' : 'লগইন';
     const actionTextEn = purpose === 'signup' ? 'sign up for' : 'log in to';
 
@@ -96,11 +108,21 @@ The code is valid for 5 minutes. Do not share this code with anyone.
 </div>
     `.trim();
 
+    const isProduction = (this.configService.get<string>('NODE_ENV') ?? process.env.NODE_ENV) === 'production';
     if (!isProduction) {
       this.logger.log(`\n======================================================\n📧 [EMAIL DISPATCH - DEV LOG]\nTo: ${to}\nPurpose: ${purpose.toUpperCase()}\nCode: ${code}\nValid: 5 Minutes\n======================================================`);
     }
 
-    if (this.isConfigured && this.transporter) {
+    if (this.provider === 'brevo') {
+      return this.brevoProvider.sendEmail({
+        to,
+        subject,
+        htmlContent,
+        textContent,
+      });
+    }
+
+    if (this.provider === 'smtp' && this.transporter) {
       try {
         const from = this.configService.get<string>('SMTP_FROM', 'Boi-Hat <no-reply@boihat.com>');
         await this.transporter.sendMail({
@@ -110,17 +132,15 @@ The code is valid for 5 minutes. Do not share this code with anyone.
           text: textContent,
           html: htmlContent,
         });
-        this.logger.log(`Email successfully dispatched to ${to}`);
+        this.logger.log(`Email successfully dispatched via SMTP to ${to}`);
         return true;
-      } catch (err) {
-        this.logger.error(`Error sending email to ${to}: ${err.message}`);
-        if (isProduction) {
-          throw err;
-        }
-        return false;
+      } catch (err: any) {
+        this.logger.error(`Error sending email to ${to} via SMTP: ${err.message}`);
+        throw new ServiceUnavailableException('ইমেইল পাঠানো যায়নি, কিছুক্ষণ পর চেষ্টা করুন');
       }
     }
 
+    // Console mode (for development / testing)
     return true;
   }
 }

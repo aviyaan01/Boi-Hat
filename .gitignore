@@ -41,3 +41,12 @@ apps/web/android/local.properties
 Thumbs.db
 
 .neon
+
+
+# Flutter & Android release keystores / credentials
+key.properties
+*.jks
+*.keystore
+apps/mobile/android/local.properties
+apps/mobile/android/.gradle/
+apps/mobile/build/

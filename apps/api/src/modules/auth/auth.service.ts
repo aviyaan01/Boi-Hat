@@ -199,7 +199,7 @@ export class AuthService {
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
     // Store in DB email_verifications table
-    await this.db.createEmailVerification({
+    const verificationRecord = await this.db.createEmailVerification({
       email: lowerEmail,
       codeHash,
       purpose: 'signup',
@@ -210,8 +210,15 @@ export class AuthService {
       expiresAt,
     });
 
-    // Send email dispatch
-    await this.emailService.sendVerificationCode(lowerEmail, code, 'signup');
+    // Send email dispatch with rate-limit rollback on delivery failure
+    try {
+      await this.emailService.sendVerificationCode(lowerEmail, code, 'signup');
+    } catch (err) {
+      await this.db.deleteVerificationById(verificationRecord.id);
+      await this.db.decrementRateLimit(`rl:ip:${clientIp}`);
+      await this.db.decrementRateLimit(`rl:email:${lowerEmail}`);
+      throw err;
+    }
 
     const nodeEnv = this.configService.get<string>('NODE_ENV') ?? process.env.NODE_ENV;
     const allowDevCode = this.configService.get<string>('ALLOW_DEV_CODE') ?? process.env.ALLOW_DEV_CODE;
@@ -326,14 +333,21 @@ export class AuthService {
     const codeHash = await bcrypt.hash(code, salt);
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
-    await this.db.createEmailVerification({
+    const verificationRecord = await this.db.createEmailVerification({
       email: targetEmail,
       codeHash,
       purpose: 'login',
       expiresAt,
     });
 
-    await this.emailService.sendVerificationCode(targetEmail, code, 'login');
+    try {
+      await this.emailService.sendVerificationCode(targetEmail, code, 'login');
+    } catch (err) {
+      await this.db.deleteVerificationById(verificationRecord.id);
+      await this.db.decrementRateLimit(`rl:ip:${clientIp}`);
+      await this.db.decrementRateLimit(`rl:email:${targetEmail}`);
+      throw err;
+    }
 
     return {
       message: 'যদি এই ইমেইল বা ইউজারনেমে কোনো অ্যাকাউন্ট থাকে, তবে ভেরিফিকেশন কোড পাঠানো হয়েছে।',
@@ -448,18 +462,21 @@ export class AuthService {
       throw new BadRequestException('Please provide a valid Bangladeshi phone number (e.g. 01712345678)');
     }
 
-    const rl = await this.db.checkAndIncrementRateLimit(`rl:phone:${phone}`, 3, 3600);
-    if (!rl.allowed) {
-      throw new BadRequestException('Too many OTP requests. Please wait an hour before requesting again.');
-    }
-
-    let code = crypto.randomInt(100000, 1000000).toString();
-    if (
+    const isDemoPhone =
       phone === '+8801700000000' ||
       phone === '+8801711111111' ||
       phone === '+8801722222222' ||
-      phone === '+8801733333333'
-    ) {
+      phone === '+8801733333333';
+
+    if (!isDemoPhone) {
+      const rl = await this.db.checkAndIncrementRateLimit(`rl:phone:${phone}`, 3, 3600);
+      if (!rl.allowed) {
+        throw new BadRequestException('Too many OTP requests. Please wait an hour before requesting again.');
+      }
+    }
+
+    let code = crypto.randomInt(100000, 1000000).toString();
+    if (isDemoPhone) {
       code = '123456';
     }
 
