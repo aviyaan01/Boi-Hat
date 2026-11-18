@@ -46,10 +46,12 @@ class _AuthSheetState extends State<AuthSheet> {
 
   // Username availability state
   Timer? _debounceTimer;
+  int _activeUsernameCheckSeq = 0;
   bool _isCheckingUsername = false;
   bool? _usernameAvailable;
   bool _usernameInconclusive = false;
   String? _usernameMessage;
+  String? _usernameTechnicalError;
   List<String> _usernameSuggestions = [];
 
   // Countdown & Resend timers
@@ -111,12 +113,13 @@ class _AuthSheetState extends State<AuthSheet> {
   }
 
   // ==========================================================================
-  // Username Live Availability Check (500ms Debounce & Retry Support)
+  // Username Live Availability Check (500ms Debounce, Cancellation & Retry)
   // ==========================================================================
   Future<void> _runUsernameCheck(String username) async {
+    final currentSeq = ++_activeUsernameCheckSeq;
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final res = await auth.checkUsernameAvailable(username);
-    if (!mounted) return;
+    if (!mounted || currentSeq != _activeUsernameCheckSeq) return;
 
     // Discard result if user has already modified the input in the meantime
     if (_usernameController.text.trim().toLowerCase() != username) return;
@@ -127,11 +130,15 @@ class _AuthSheetState extends State<AuthSheet> {
         _usernameAvailable = null;
         _usernameInconclusive = true;
         _usernameMessage = res['message']?.toString() ?? AuthLocalizations.usernameInconclusive;
+        _usernameTechnicalError = res['error'] != null
+            ? '${res['errorType'] ?? "Error"}: ${res['error']}'.trim()
+            : null;
         _usernameSuggestions = [];
       } else {
         _usernameInconclusive = false;
         _usernameAvailable = res['available'] == true;
         _usernameMessage = res['message']?.toString();
+        _usernameTechnicalError = null;
         if (res['suggestions'] != null && res['suggestions'] is List) {
           _usernameSuggestions = List<String>.from(res['suggestions']);
         } else {
@@ -143,6 +150,7 @@ class _AuthSheetState extends State<AuthSheet> {
 
   void _onUsernameChanged(String value) {
     _debounceTimer?.cancel();
+    _activeUsernameCheckSeq++; // Cancel and ignore previous in-flight checks
     final lower = value.trim().toLowerCase();
 
     // Reset availability state
@@ -150,6 +158,7 @@ class _AuthSheetState extends State<AuthSheet> {
       _usernameAvailable = null;
       _usernameInconclusive = false;
       _usernameMessage = null;
+      _usernameTechnicalError = null;
       _usernameSuggestions = [];
     });
 
@@ -159,6 +168,7 @@ class _AuthSheetState extends State<AuthSheet> {
         _usernameAvailable = false;
         _usernameInconclusive = false;
         _usernameMessage = validationErr;
+        _usernameTechnicalError = null;
       });
       return;
     }
@@ -182,6 +192,7 @@ class _AuthSheetState extends State<AuthSheet> {
         _usernameAvailable = false;
         _usernameInconclusive = false;
         _usernameMessage = validationErr;
+        _usernameTechnicalError = null;
       });
       return;
     }
@@ -191,6 +202,7 @@ class _AuthSheetState extends State<AuthSheet> {
       _usernameInconclusive = false;
       _usernameAvailable = null;
       _usernameMessage = null;
+      _usernameTechnicalError = null;
       _usernameSuggestions = [];
     });
 
@@ -389,6 +401,121 @@ class _AuthSheetState extends State<AuthSheet> {
   }
 
   // ==========================================================================
+  // In-App Server Connectivity Self-Test (Debug Only)
+  // ==========================================================================
+  Future<void> _handleServerConnectivityTest() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(20),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(width: 16),
+                Text('সার্ভার কানেকশন টেস্ট হচ্ছে...'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final res = await ApiClient.checkHealth();
+    if (!mounted) return;
+    Navigator.of(context, rootNavigator: true).pop();
+
+    final isOk = res['status'] == 'ok';
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(isOk ? Icons.check_circle : Icons.error, color: isOk ? Colors.green : Colors.red),
+            const SizedBox(width: 8),
+            Text(isOk ? 'সার্ভার সচল (Connected)' : 'কানেকশন ব্যর্থ (Failed)', style: const TextStyle(fontSize: 16)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Target URL: ${res['targetUrl']}', style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+            const SizedBox(height: 8),
+            if (isOk) ...[
+              Text('Status: ${res['statusCode']} OK', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+              Text('Latency: ${res['latencyMs']} ms'),
+              Text('Database: ${res['db']}'),
+              Text('Service: ${res['service']}'),
+            ] else ...[
+              const Text('Error Details:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  res['error']?.toString() ?? 'Unknown error',
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 11, color: Colors.red),
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('ঠিক আছে'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==========================================================================
+  // Helper: Detailed Disabled Reason for Signup / Login Action Button
+  // ==========================================================================
+  String? _getDisabledReason() {
+    if (!_isSignup) {
+      if (_identifierController.text.trim().isEmpty) {
+        return 'ইমেইল বা ইউজারনেম লিখুন';
+      }
+      return null;
+    }
+
+    final nameErr = AuthValidators.validateName(_nameController.text);
+    if (nameErr != null) {
+      return _nameController.text.trim().isEmpty ? 'পূর্ণ নাম লিখুন' : nameErr;
+    }
+
+    final username = _usernameController.text.trim().toLowerCase();
+    final usernameErr = AuthValidators.validateUsername(username);
+    if (usernameErr != null) {
+      return username.isEmpty ? 'ইউজারনেম লিখুন' : usernameErr;
+    }
+
+    if (_isCheckingUsername) {
+      return 'ইউজারনেম যাচাই হচ্ছে...';
+    }
+
+    if (_usernameAvailable == false && !_usernameInconclusive) {
+      return 'ইউজারনেমটি আগে থেকেই নেওয়া';
+    }
+
+    final emailErr = AuthValidators.validateEmail(_emailController.text);
+    if (emailErr != null) {
+      return _emailController.text.trim().isEmpty ? 'ইমেইল ঠিকানা লিখুন' : emailErr;
+    }
+
+    return null;
+  }
+
+  // ==========================================================================
   // Build Methods
   // ==========================================================================
   @override
@@ -396,12 +523,8 @@ class _AuthSheetState extends State<AuthSheet> {
     final auth = Provider.of<AuthProvider>(context);
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
-    final isSignupButtonEnabled = !_isSignup
-        ? _identifierController.text.trim().isNotEmpty
-        : (AuthValidators.validateName(_nameController.text) == null &&
-            AuthValidators.validateUsername(_usernameController.text) == null &&
-            (_usernameAvailable == true || _usernameInconclusive == true) &&
-            AuthValidators.validateEmail(_emailController.text) == null);
+    final disabledReason = _getDisabledReason();
+    final isSignupButtonEnabled = disabledReason == null;
 
     return Container(
       padding: EdgeInsets.only(
@@ -687,6 +810,19 @@ class _AuthSheetState extends State<AuthSheet> {
                     ),
                   ),
                 ],
+                if (kDebugMode && _usernameTechnicalError != null && !_isCheckingUsername)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 3, left: 14, right: 14),
+                    child: Text(
+                      '[Debug Error] $_usernameTechnicalError',
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: Color(0xFFB91C1C),
+                        fontFamily: 'monospace',
+                        height: 1.2,
+                      ),
+                    ),
+                  ),
                 if (_usernameSuggestions.isNotEmpty) ...[
                   const SizedBox(height: 6),
                   Padding(
@@ -776,6 +912,21 @@ class _AuthSheetState extends State<AuthSheet> {
                         style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                       ),
               ),
+
+              // Disabled reason helper text
+              if (!isSignupButtonEnabled && _step == 1) ...[
+                const SizedBox(height: 6),
+                Center(
+                  child: Text(
+                    disabledReason,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF64748B),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
             ]
             // ================================================================
             // SCREEN 2: 6-Box OTP Verification Screen
@@ -942,18 +1093,40 @@ class _AuthSheetState extends State<AuthSheet> {
               const SizedBox(height: 12),
               const Divider(),
               const SizedBox(height: 6),
-              OutlinedButton.icon(
-                onPressed: auth.isLoading ? null : _handleQuickDevLogin,
-                icon: const Icon(Icons.flash_on, color: AppTheme.accent),
-                label: Text(
-                  AuthLocalizations.quickDevLogin,
-                  style: const TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold, fontSize: 12),
-                ),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  side: const BorderSide(color: Color(0xFFCBD5E1)),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: auth.isLoading ? null : _handleServerConnectivityTest,
+                      icon: const Icon(Icons.network_check, size: 16, color: AppTheme.primary),
+                      label: const Text(
+                        'সার্ভার টেস্ট',
+                        style: TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold, fontSize: 11),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        side: const BorderSide(color: AppTheme.primary),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: auth.isLoading ? null : _handleQuickDevLogin,
+                      icon: const Icon(Icons.flash_on, size: 16, color: AppTheme.accent),
+                      label: Text(
+                        AuthLocalizations.quickDevLogin,
+                        style: const TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold, fontSize: 11),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        side: const BorderSide(color: Color(0xFFCBD5E1)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 4),
               TextButton.icon(

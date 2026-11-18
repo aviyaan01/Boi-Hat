@@ -9,8 +9,13 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   async onModuleInit() {
     try {
       await this.$connect();
+      // Neon connection warmup: run a quick query to establish PostgreSQL connection pool and TLS handshake
+      await Promise.race([
+        this.$queryRawUnsafe('SELECT 1'),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Warmup timeout')), 2500)),
+      ]).catch((err) => this.logger.warn(`Prisma warmup ping warning: ${err.message}`));
       this.isConnected = true;
-      this.logger.log('Successfully connected to PostgreSQL via Prisma');
+      this.logger.log('Successfully connected and warmed up PostgreSQL connection via Prisma');
     } catch (error) {
       this.isConnected = false;
       this.logger.warn(

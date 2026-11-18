@@ -117,6 +117,41 @@ docker-compose up --build
 
 ## 🧪 Testing
 
+### 4. Flutter Mobile App (Android Device & Emulator)
+
+#### A. Run on Physical Phone over USB (Recommended — Zero Wi-Fi/Firewall Issues)
+Connect your phone with a USB cable (with USB Debugging turned ON in Developer Options):
+```bash
+# 1. Forward port 4000 from phone to PC
+adb reverse tcp:4000 tcp:4000
+
+# 2. Run the mobile app pointing to localhost
+cd apps/mobile
+flutter run --dart-define=API_BASE_URL=http://localhost:4000
+```
+
+#### B. Run on Physical Phone over Wi-Fi
+Make sure your PC and phone are connected to the same Wi-Fi network:
+```powershell
+# 1. Allow port 4000 in Windows Firewall (run in Admin PowerShell):
+New-NetFirewallRule -DisplayName "Boi-Hat API Port 4000" -Direction Inbound -LocalPort 4000 -Protocol TCP -Action Allow
+
+# 2. Find your PC's Wi-Fi IP:
+ipconfig # e.g. IPv4 Address: 192.168.1.107
+
+# 3. Run the app with your PC's IP:
+cd apps/mobile
+flutter run --dart-define=API_BASE_URL=http://192.168.1.107:4000
+```
+
+#### C. Run on Android Emulator
+```bash
+cd apps/mobile
+flutter run # Automatically defaults to http://10.0.2.2:4000 for Android Emulator
+```
+
+---
+
 ### Run All Unit & Integration Tests:
 ```bash
 npm test

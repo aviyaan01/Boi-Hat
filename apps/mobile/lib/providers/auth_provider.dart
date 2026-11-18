@@ -62,11 +62,11 @@ class AuthProvider extends ChangeNotifier {
   }
 
   // ==========================================================================
-  // Live Username Availability Check (500ms Debounce Consumer)
+  // Live Username Availability Check (500ms Debounce Consumer with Cancellation & Retry)
   // ==========================================================================
   Future<Map<String, dynamic>> checkUsernameAvailable(String username) async {
     try {
-      final res = await ApiClient.get('/auth/username-available?u=${Uri.encodeComponent(username)}');
+      final res = await ApiClient.getUsernameAvailable(username);
       if (res is Map<String, dynamic>) {
         return res;
       }
@@ -76,11 +76,13 @@ class AuthProvider extends ChangeNotifier {
         'message': AuthLocalizations.usernameInconclusive,
       };
     } catch (e) {
+      debugPrint('[AuthProvider] checkUsernameAvailable caught exception for "$username": $e (${e.runtimeType})');
       return {
         'available': null,
         'inconclusive': true,
         'message': AuthLocalizations.usernameInconclusive,
         'error': e.toString(),
+        'errorType': e.runtimeType.toString(),
       };
     }
   }

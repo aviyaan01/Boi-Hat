@@ -16,11 +16,13 @@ import { WalletModule } from './modules/wallet/wallet.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { CouriersModule } from './modules/couriers/couriers.module';
 import { MerchantsModule } from './modules/merchants/merchants.module';
+import { HealthModule } from './modules/health/health.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     CommonModule,
+    HealthModule,
     AuthModule,
     UsersModule,
     CategoriesModule,
