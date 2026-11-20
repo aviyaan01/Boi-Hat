@@ -4,7 +4,7 @@ services:
     runtime: node
     plan: free
     region: singapore
-    buildCommand: npm install && npm run build && npx prisma migrate deploy --schema=apps/api/prisma/schema.prisma
+    buildCommand: npm install --include=dev && npx prisma generate --schema=apps/api/prisma/schema.prisma && npm run build && npx prisma migrate deploy --schema=apps/api/prisma/schema.prisma
     startCommand: node apps/api/dist/src/main
     healthCheckPath: /health
     autoDeploy: true
@@ -22,11 +22,7 @@ services:
       - key: JWT_REFRESH_SECRET
         generateValue: true
       - key: EMAIL_PROVIDER
-        value: brevo
-      - key: BREVO_API_KEY
-        sync: false
-      - key: BREVO_SENDER_EMAIL
-        sync: false
+        value: console
       - key: STORAGE_PROVIDER
         value: cloudinary
       - key: CLOUDINARY_CLOUD_NAME
